@@ -5,20 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MPM Dashboard</title>
   <style>
-    /* ---- Reset & Base ---- */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:        #f5f5f5;
+      --bg:        #efefef;
       --surface:   #ffffff;
       --border:    #e0e0e0;
       --text:      #111111;
       --secondary: #888888;
-      --muted:     #bbbbbb;
-      --accent:    #333333;
-      --done-text: #aaaaaa;
-      --radius:    6px;
-      --col-width: 320px;
+      --muted:     #bbb;
+      --line:      #aaa;
+      --radius:    7px;
+      --col-width: 240px;
+      --header-h:  42px;
     }
 
     body {
@@ -27,410 +26,721 @@
       line-height: 1.5;
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
-    /* ---- Header ---- */
+    /* ---- Top bar ---- */
     header {
-      position: sticky;
-      top: 0;
-      z-index: 10;
+      flex-shrink: 0;
+      height: var(--header-h);
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 12px 24px;
+      padding: 0 20px;
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
     }
-
     header h1 {
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--text);
-    }
-
-    #status {
       font-size: 11px;
-      color: var(--secondary);
-      margin-left: auto;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
     }
-
-    #refresh-btn {
+    #status { font-size: 11px; color: var(--muted); margin-left: auto; }
+    .top-btn {
       font-size: 11px;
       color: var(--secondary);
       background: none;
       border: 1px solid var(--border);
-      border-radius: var(--radius);
+      border-radius: 4px;
       padding: 3px 10px;
       cursor: pointer;
-      transition: color 0.15s, border-color 0.15s;
     }
-    #refresh-btn:hover { color: var(--text); border-color: var(--accent); }
+    .top-btn:hover { color: var(--text); border-color: #aaa; }
 
     /* ---- Board ---- */
     #board {
+      flex: 1;
       display: flex;
-      gap: 16px;
-      padding: 20px 24px;
+      gap: 14px;
+      padding: 16px 20px;
       overflow-x: auto;
-      align-items: flex-start;
+      overflow-y: hidden;
     }
 
     /* ---- Column ---- */
     .col {
       flex: 0 0 var(--col-width);
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
+      width: var(--col-width);
+      max-width: var(--col-width);
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
       overflow: hidden;
     }
 
-    .col-header {
-      padding: 14px 16px 10px;
-      border-bottom: 1px solid var(--border);
+    /* ---- Column label (sticky, no scroll) ---- */
+    .col-name-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;
     }
 
     .col-name {
       font-weight: 600;
       font-size: 13px;
-      letter-spacing: 0.03em;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .col-phase-label {
-      margin-top: 4px;
+    /* Docs icon button */
+    .docs-btn {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--muted);
+      padding: 0;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .docs-btn:hover { color: var(--text); border-color: #aaa; }
+
+    .col-label {
+      flex-shrink: 0;
+      background: var(--bg);
+      padding-bottom: 10px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .col-phase {
       font-size: 11px;
       color: var(--secondary);
+      margin-bottom: 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    /* Progress bar */
     .progress-bar {
-      margin-top: 8px;
-      height: 2px;
-      background: var(--border);
-      border-radius: 1px;
+      height: 6px;
+      background: #d8d8d8;
+      border-radius: 3px;
       overflow: hidden;
+      margin-bottom: 0;
     }
     .progress-fill {
       height: 100%;
-      background: var(--accent);
-      border-radius: 1px;
+      background: #555;
+      border-radius: 3px;
       transition: width 0.4s ease;
     }
 
-    /* ---- Column body ---- */
-    .col-body {
-      padding: 12px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    /* ---- Next tasks ---- */
-    .section-title {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-
-    .task-list {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .task-item {
-      display: flex;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--text);
-    }
-
-    .task-item::before {
-      content: "·";
-      color: var(--secondary);
-      flex-shrink: 0;
-    }
-
-    /* ---- Handoff thread ---- */
-    .thread {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .commit-card {
-      border-left: 2px solid var(--border);
-      padding: 0 0 0 10px;
-    }
-
-    .commit-meta {
-      font-size: 10px;
-      color: var(--muted);
-      margin-bottom: 2px;
-    }
-
-    .commit-summary {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text);
-      line-height: 1.4;
-    }
-
-    .commit-details {
-      margin-top: 4px;
+    /* Chevron on name row */
+    .col-chevron {
       font-size: 11px;
-      color: var(--secondary);
-      line-height: 1.5;
-      white-space: pre-wrap;
+      color: var(--muted);
+      flex-shrink: 0;
+      transition: transform 0.2s;
+      line-height: 1;
+    }
+    .col-label.details-open .col-chevron { transform: rotate(90deg); }
+
+    .col-details { margin-top: 8px; }
+
+    .col-goal {
+      font-size: 11px;
+      color: #444;
+      line-height: 1.4;
+      height: 40px;
+      min-height: 40px;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      margin-bottom: 4px;
+    }
+    .col-label.details-open .col-goal {
+      display: block;
+      height: auto;
+      min-height: 40px;
+      overflow: visible;
     }
 
-    /* ---- ROADMAP items ---- */
-    .roadmap-items {
+    .col-tasks {
+      height: 40px;
+      min-height: 40px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      border-top: 1px solid #c8c8c8;
+      padding-top: 6px;
+    }
+    .col-label.details-open .col-tasks {
+      height: auto;
+      min-height: 40px;
+      overflow: visible;
+    }
+
+    .tasks-empty {
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .task-row {
+      font-size: 11px;
+      color: #444;
+      display: flex;
+      gap: 5px;
+      line-height: 1.4;
+      flex-shrink: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .task-row::before { content: '→'; color: var(--muted); flex-shrink: 0; }
+
+    /* ---- Stream ---- */
+    .stream {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+      padding: 0 2px 16px;
+    }
+    .stream::-webkit-scrollbar { width: 2px; }
+    .stream::-webkit-scrollbar-track { background: transparent; }
+    .stream::-webkit-scrollbar-thumb { background: var(--border); border-radius: 1px; }
+
+    .stream::before {
+      content: '';
+      position: absolute;
+      left: calc(50% - 0.5px);
+      top: var(--line-top, 45px);
+      height: var(--line-height, 0px);
+      width: 1px;
+      background: var(--line);
+      z-index: 0;
+    }
+
+    /* ---- Cards ---- */
+    .card {
+      position: relative;
+      z-index: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+      min-height: 90px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .card:last-child { margin-bottom: 0; }
+
+    /* Current session */
+    .card.current {
+      border: 1.5px solid #666;
+    }
+
+    /* Handoff cards are clickable */
+    .card.handoff { cursor: pointer; }
+    .card.handoff:hover { border-color: #bbb; }
+    .card.handoff.expanded {
+      border-color: #999;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+
+    .card-head { padding: 10px 12px 0; }
+
+    .card-date {
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 3px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Commit preview rows (always visible on handoff cards) */
+    .commit-preview {
+      padding: 6px 12px 10px;
       display: flex;
       flex-direction: column;
       gap: 3px;
     }
 
-    .roadmap-item {
+    .cp-row {
       display: flex;
-      gap: 7px;
-      font-size: 12px;
-      align-items: flex-start;
+      gap: 5px;
+      font-size: 11px;
+      min-width: 0;
+      line-height: 1.4;
+    }
+    .cp-num { color: var(--muted); flex-shrink: 0; }
+    .cp-msg {
+      color: var(--text);
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      min-width: 0;
     }
 
-    .check {
-      flex-shrink: 0;
-      width: 13px;
-      height: 13px;
-      margin-top: 1px;
-      border: 1px solid var(--border);
-      border-radius: 3px;
+    /* Current session commit rows */
+    .session-commits {
+      padding: 8px 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .session-label {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .session-empty {
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+      padding: 8px 12px 10px;
+    }
+
+    /* Expanded card body */
+    .card-body {
+      display: none;
+      padding: 0 12px 10px;
+      border-top: 1px solid var(--border);
+    }
+    .card.expanded .card-body { display: block; }
+
+    .commits-detail {
+      padding-top: 9px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .commit-entry { font-size: 11px; }
+    .commit-entry .num { color: var(--muted); margin-right: 4px; }
+    .commit-entry .msg { font-weight: 500; }
+    .commit-entry .det {
+      margin-top: 3px;
+      color: var(--secondary);
+      line-height: 1.5;
+      white-space: pre-wrap;
+      padding-left: 16px;
+    }
+
+    .card-divider { border: none; border-top: 1px solid var(--border); margin: 8px 0 0; }
+
+    .next-section { padding-top: 7px; }
+    .next-label {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+    .next-row {
+      font-size: 11px;
+      color: var(--text);
+      display: flex;
+      gap: 6px;
+      padding: 1px 0;
+    }
+    .next-row::before { content: '→'; color: var(--muted); flex-shrink: 0; }
+
+    /* ---- Docs modal ---- */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.25);
+      z-index: 1000;
       display: flex;
       align-items: center;
       justify-content: center;
     }
+    .modal-overlay.hidden { display: none; }
 
-    .check.done {
-      background: var(--border);
+    .modal-box {
+      background: var(--surface);
+      width: 680px;
+      max-width: 92vw;
+      height: 78vh;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .modal-header {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-project {
+      font-weight: 600;
+      font-size: 13px;
+      margin-right: 4px;
+    }
+
+    .modal-tabs {
+      display: flex;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .tab-btn {
+      font-size: 11px;
+      color: var(--secondary);
+      background: none;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      padding: 3px 10px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .tab-btn:hover { color: var(--text); border-color: var(--border); }
+    .tab-btn.active {
+      color: var(--text);
+      background: var(--bg);
       border-color: var(--border);
     }
 
-    .check.done::after {
-      content: "✓";
-      font-size: 9px;
-      color: var(--secondary);
-    }
-
-    .roadmap-item.done .item-text {
-      color: var(--done-text);
-      text-decoration: line-through;
-      text-decoration-color: var(--muted);
-    }
-
-    .item-text {
-      flex: 1;
-      line-height: 1.4;
-    }
-
-    /* ---- Error state ---- */
-    .error-msg {
-      font-size: 11px;
-      color: #c0392b;
-      padding: 8px 0;
-    }
-
-    /* ---- Empty state ---- */
-    .empty {
+    .modal-close {
+      font-size: 14px;
       color: var(--muted);
-      font-size: 12px;
-      font-style: italic;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 6px;
+      line-height: 1;
+      border-radius: 4px;
     }
+    .modal-close:hover { color: var(--text); background: var(--bg); }
 
-    /* ---- Loading ---- */
-    #loading {
-      padding: 40px 24px;
-      color: var(--secondary);
-      font-size: 12px;
+    .modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
     }
+    .modal-body::-webkit-scrollbar { width: 4px; }
+    .modal-body::-webkit-scrollbar-track { background: transparent; }
+    .modal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* Markdown styles inside modal */
+    .md-content h1 { font-size: 18px; font-weight: 700; margin: 0 0 12px; }
+    .md-content h2 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+    .md-content h3 { font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+    .md-content p { margin: 0 0 10px; line-height: 1.6; color: var(--text); }
+    .md-content ul, .md-content ol { margin: 0 0 10px 20px; }
+    .md-content li { margin-bottom: 3px; line-height: 1.5; font-size: 12px; }
+    .md-content code { font-family: 'Menlo', 'Monaco', monospace; font-size: 11px; background: var(--bg); padding: 1px 4px; border-radius: 3px; }
+    .md-content pre { background: var(--bg); padding: 12px; border-radius: 6px; overflow-x: auto; margin: 0 0 12px; }
+    .md-content pre code { background: none; padding: 0; }
+    .md-content hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+    .md-content strong { font-weight: 600; }
+    .md-content a { color: #555; }
+
+    .modal-loading { color: var(--muted); font-size: 12px; padding: 20px 0; }
   </style>
 </head>
 <body>
 
 <header>
   <h1>MPM</h1>
-  <button id="refresh-btn" onclick="forceRefresh()">Refresh</button>
+  <button class="top-btn" onclick="forceRefresh()">Refresh</button>
   <span id="status">Loading…</span>
 </header>
 
-<div id="loading">Loading projects…</div>
-<div id="board" style="display:none"></div>
+<div id="board"></div>
+
+<!-- Docs modal -->
+<div class="modal-overlay hidden" id="docs-modal" onclick="handleOverlayClick(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span class="modal-project" id="modal-project-name"></span>
+      <div class="modal-tabs" id="modal-tabs"></div>
+      <button class="modal-close" onclick="closeDocs()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="modal-content" class="md-content"></div>
+    </div>
+  </div>
+</div>
 
 <script>
   const board = document.getElementById('board');
-  const loading = document.getElementById('loading');
-  const status = document.getElementById('status');
+  const statusEl = document.getElementById('status');
 
-  // ---- Formatting helpers ----
+  // ---- State ----
+  const expandedTaskCols = new Set();   // project names with tasks expanded
+  let modalProject = null;
+  let modalTab = 'roadmap';
 
-  function fmtTimestamp(ts) {
-    // ts format: yymmddhhmm  e.g. 2603140119
-    if (!ts || ts.length < 10) return ts;
-    const yy = ts.slice(0, 2);
-    const mm = ts.slice(2, 4);
-    const dd = ts.slice(4, 6);
-    const hh = ts.slice(6, 8);
-    const mn = ts.slice(8, 10);
-    return `20${yy}-${mm}-${dd} ${hh}:${mn}`;
+  // ---- Helpers ----
+  function fmtDate(fn) {
+    if (!fn || fn.length < 10) return fn;
+    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const m = parseInt(fn.slice(2,4),10) - 1;
+    const d = parseInt(fn.slice(4,6),10);
+    return `${mo[m]} ${d} · ${fn.slice(6,8)}:${fn.slice(8,10)}`;
   }
 
-  function fmtUpdated(epochSec) {
-    const d = new Date(epochSec * 1000);
-    return `Updated ${d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  function escHtml(s) {
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+  // Shorten task text: strip sub-detail after " — " or " (" and backticks
+  function shortTask(t) {
+    return t.split(' — ')[0].split(' (')[0].replace(/`/g,'').trim();
+  }
+
+  // ---- Streamlines ----
+  function fixStreamlines() {
+    document.querySelectorAll('.stream').forEach(stream => {
+      const cards = Array.from(stream.querySelectorAll('.card'));
+      if (cards.length === 0) return;
+      const first = cards[0], last = cards[cards.length - 1];
+      const top = first.offsetTop + first.offsetHeight / 2;
+      const bottom = last.offsetTop + last.offsetHeight / 2;
+      stream.style.setProperty('--line-top', top + 'px');
+      stream.style.setProperty('--line-height', (bottom - top) + 'px');
+    });
+  }
+
+  // ---- Card expand/collapse (handoff cards only, focus-based) ----
+  function collapseAll() {
+    document.querySelectorAll('.card.handoff.expanded').forEach(c => c.classList.remove('expanded'));
+  }
+
+  function bindCards() {
+    document.querySelectorAll('.card.handoff').forEach(card => {
+      card.addEventListener('click', e => {
+        e.stopPropagation();
+        const was = card.classList.contains('expanded');
+        collapseAll();
+        if (!was) card.classList.add('expanded');
+        requestAnimationFrame(fixStreamlines);
+      });
+    });
+  }
+
+  document.addEventListener('click', () => {
+    collapseAll();
+    requestAnimationFrame(fixStreamlines);
+  });
+
+  // ---- Header details toggle (persistent, click anywhere on label) ----
+  // collapsedCols = set of project names that are currently collapsed
+  const collapsedCols = new Set();
+
+  function toggleColDetails(e, projectName) {
+    e.stopPropagation();
+    if (collapsedCols.has(projectName)) {
+      collapsedCols.delete(projectName);
+    } else {
+      collapsedCols.add(projectName);
+    }
+    applyDetailsState();
+    requestAnimationFrame(fixStreamlines);
+  }
+
+  function applyDetailsState() {
+    document.querySelectorAll('.col-label').forEach(label => {
+      const name = label.dataset.project;
+      label.classList.toggle('details-open', !collapsedCols.has(name));
+    });
+  }
+
+  // ---- Docs modal ----
+  async function openDocs(projectName, tab) {
+    modalProject = projectName;
+    modalTab = tab || 'roadmap';
+    document.getElementById('modal-project-name').textContent = projectName;
+    document.getElementById('docs-modal').classList.remove('hidden');
+    renderModalTabs();
+    await loadDoc();
+  }
+
+  function closeDocs() {
+    document.getElementById('docs-modal').classList.add('hidden');
+    modalProject = null;
+  }
+
+  function handleOverlayClick(e) {
+    if (e.target === document.getElementById('docs-modal')) closeDocs();
+  }
+
+  function renderModalTabs() {
+    const tabs = [
+      { id: 'roadmap', label: 'Roadmap' },
+      { id: 'readme', label: 'Readme' },
+      { id: 'architecture', label: 'Architecture' },
+    ];
+    document.getElementById('modal-tabs').innerHTML = tabs.map(t =>
+      `<button class="tab-btn${t.id === modalTab ? ' active' : ''}"
+        onclick="switchTab('${t.id}')">${t.label}</button>`
+    ).join('');
+  }
+
+  async function switchTab(tab) {
+    modalTab = tab;
+    renderModalTabs();
+    await loadDoc();
+  }
+
+  async function loadDoc() {
+    const el = document.getElementById('modal-content');
+    el.innerHTML = '<div class="modal-loading">Loading…</div>';
+    try {
+      const res = await fetch(`/api/doc/${encodeURIComponent(modalProject)}/${modalTab}`);
+      const data = await res.json();
+      if (data.error) {
+        el.innerHTML = `<div class="modal-loading">${esc(data.error)}</div>`;
+      } else {
+        el.innerHTML = data.html;
+      }
+    } catch(e) {
+      el.innerHTML = '<div class="modal-loading">Failed to load.</div>';
+    }
   }
 
   // ---- Render ----
-
-  function renderPhaseProgress(phase) {
-    if (!phase) return '';
-    const pct = phase.total_count > 0
-      ? Math.round((phase.done_count / phase.total_count) * 100)
-      : 0;
-    return `
-      <div class="col-phase-label">
-        Phase ${phase.number}: ${escHtml(phase.name)} &nbsp;·&nbsp; ${phase.done_count}/${phase.total_count}
-      </div>
-      <div class="progress-bar">
-        <div class="progress-fill" style="width:${pct}%"></div>
-      </div>`;
+  function renderCurrentCard(p) {
+    const commits = p.unhandoffed_commits || [];
+    let inner;
+    if (commits.length > 0) {
+      const rows = commits.map(c =>
+        `<div class="cp-row"><span class="cp-num">${esc(c.hash)}</span><span class="cp-msg">${esc(c.summary)}</span></div>`
+      ).join('');
+      inner = `<div class="session-commits"><div class="session-label">Since last handoff</div>${rows}</div>`;
+    } else {
+      inner = `<div class="session-empty">No commits since last handoff.</div>`;
+    }
+    return `<div class="card current">${inner}</div>`;
   }
 
-  function renderNextTasks(tasks) {
-    if (!tasks || tasks.length === 0) return '';
-    const items = tasks.map(t =>
-      `<div class="task-item">${escHtml(t)}</div>`
+  function renderHandoffCard(h) {
+    const previewRows = h.commits.map(c =>
+      `<div class="cp-row"><span class="cp-num">#${c.number}</span><span class="cp-msg">${esc(c.summary)}</span></div>`
     ).join('');
-    return `
-      <div>
-        <div class="section-title">Next</div>
-        <div class="task-list">${items}</div>
-      </div>`;
-  }
 
-  function renderThread(commits) {
-    if (!commits || commits.length === 0) return '';
-    const cards = [...commits].reverse().map(c => `
-      <div class="commit-card">
-        <div class="commit-meta">#${c.number} · ${fmtTimestamp(c.timestamp)}</div>
-        <div class="commit-summary">${escHtml(c.summary)}</div>
-        ${c.details ? `<div class="commit-details">${escHtml(c.details)}</div>` : ''}
+    const detailEntries = h.commits.map(c =>
+      `<div class="commit-entry">
+        <span class="num">#${c.number}</span><span class="msg">${esc(c.summary)}</span>
+        ${c.details ? `<div class="det">${esc(c.details)}</div>` : ''}
       </div>`
     ).join('');
+
+    const nextRows = (h.next_tasks||[]).map(t =>
+      `<div class="next-row">${esc(t)}</div>`
+    ).join('');
+
+    const body = [
+      detailEntries ? `<div class="commits-detail">${detailEntries}</div>` : '',
+      nextRows ? `<hr class="card-divider"><div class="next-section"><div class="next-label">Next</div>${nextRows}</div>` : '',
+    ].filter(Boolean).join('');
+
     return `
-      <div>
-        <div class="section-title">Recent</div>
-        <div class="thread">${cards}</div>
+      <div class="card handoff">
+        <div class="card-head">
+          <div class="card-date">${fmtDate(h.filename)}</div>
+        </div>
+        ${previewRows ? `<div class="commit-preview">${previewRows}</div>` : ''}
+        <div class="card-body">${body || '<span style="color:#ccc;font-size:11px">No details.</span>'}</div>
       </div>`;
   }
 
-  function renderRoadmapItems(phase) {
-    if (!phase || phase.items.length === 0) return '';
-    const items = phase.items.map(item => {
-      const doneClass = item.done ? ' done' : '';
-      return `
-        <div class="roadmap-item${doneClass}">
-          <div class="check${doneClass}"></div>
-          <span class="item-text">${escHtml(item.text)}</span>
-        </div>`;
-    }).join('');
-    return `
-      <div>
-        <div class="section-title">Phase tasks</div>
-        <div class="roadmap-items">${items}</div>
+  function renderCol(p) {
+    const cp = p.current_phase;
+    const pct = (cp && cp.total_count > 0)
+      ? Math.round(cp.done_count / cp.total_count * 100) : 0;
+
+    const pendingItems = cp ? cp.items.filter(i => !i.done) : [];
+    const taskRows = pendingItems.length > 0
+      ? pendingItems.map(i => `<div class="task-row">${esc(shortTask(i.text))}</div>`).join('')
+      : `<div class="tasks-empty">Nothing left this phase.</div>`;
+
+    const label = `
+      <div class="col-label" data-project="${esc(p.name)}"
+           onclick="toggleColDetails(event, '${esc(p.name)}')">
+        <div class="col-name-row">
+          <span class="col-name">${esc(p.name)}</span>
+          <span class="col-chevron">›</span>
+          <button class="docs-btn" onclick="event.stopPropagation(); openDocs('${esc(p.name)}')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+          </button>
+        </div>
+        ${cp ? `
+          <div class="col-phase">Phase ${cp.number}: ${esc(cp.name)} · ${cp.done_count}/${cp.total_count}</div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+          <div class="col-details">
+            ${cp.goal ? `<div class="col-goal">${esc(cp.goal)}</div>` : ''}
+            <div class="col-tasks">${taskRows}</div>
+          </div>
+        ` : ''}
       </div>`;
-  }
 
-  function renderProject(p) {
-    const header = `
-      <div class="col-header">
-        <div class="col-name">${escHtml(p.name)}</div>
-        ${renderPhaseProgress(p.current_phase)}
-      </div>`;
+    const validHandoffs = (p.handoffs||[]).filter(h => h.commits.length > 0 || h.next_tasks.length > 0);
+    const cards = [renderCurrentCard(p), ...validHandoffs.map(renderHandoffCard)].join('');
 
-    let body = '';
-
-    if (p.error) {
-      body = `<div class="error-msg">${escHtml(p.error)}</div>`;
-    } else {
-      body = [
-        renderNextTasks(p.next_tasks),
-        renderRoadmapItems(p.current_phase),
-        renderThread(p.commits),
-      ].filter(Boolean).join('');
-
-      if (!body) body = '<span class="empty">No data yet.</span>';
-    }
-
-    return `<div class="col">${header}<div class="col-body">${body}</div></div>`;
+    return `<div class="col">${label}<div class="stream">${cards}</div></div>`;
   }
 
   function render(projects) {
-    if (!projects || projects.length === 0) {
-      board.innerHTML = '<span class="empty">No projects found.</span>';
-    } else {
-      board.innerHTML = projects.map(renderProject).join('');
-    }
-    loading.style.display = 'none';
-    board.style.display = 'flex';
+    board.innerHTML = (projects||[]).map(renderCol).join('');
+    bindCards();
+    applyDetailsState();
+    requestAnimationFrame(fixStreamlines);
   }
 
   // ---- Fetch ----
-
-  async function fetchProjects() {
-    const res = await fetch('/api/projects');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
-  }
-
   async function load() {
     try {
-      const data = await fetchProjects();
+      const data = await fetch('/api/projects').then(r => r.json());
       render(data.projects);
-      status.textContent = fmtUpdated(data.updated_at);
-    } catch (e) {
-      status.textContent = 'Error loading data';
-      console.error(e);
-    }
+      const d = new Date(data.updated_at * 1000);
+      statusEl.textContent = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    } catch(e) { statusEl.textContent = 'Error'; }
   }
 
   async function forceRefresh() {
-    status.textContent = 'Refreshing…';
+    statusEl.textContent = '…';
     try {
-      const res = await fetch('/api/refresh', { method: 'POST' });
-      const data = await res.json();
+      const data = await fetch('/api/refresh',{method:'POST'}).then(r=>r.json());
       render(data.projects);
-      status.textContent = fmtUpdated(data.updated_at);
-    } catch (e) {
-      status.textContent = 'Refresh failed';
-      console.error(e);
-    }
+      const d = new Date(data.updated_at * 1000);
+      statusEl.textContent = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    } catch(e) { statusEl.textContent = 'Error'; }
   }
 
-  // Auto-refresh every 30s
   load();
   setInterval(load, 30_000);
 </script>
-
 </body>
 </html>

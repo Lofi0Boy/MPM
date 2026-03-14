@@ -3,30 +3,23 @@ MPM Dashboard — web server.
 
 Run from the MPM root:
     python dashboard/server.py
-
-Or from within the dashboard directory:
-    python server.py
 """
 
 import sys
 import time
 from pathlib import Path
 
-# Make sibling imports work regardless of working directory
 sys.path.insert(0, str(Path(__file__).parent))
 
+import markdown as md_lib
 from flask import Flask, jsonify, render_template
 
-from projects import get_all_projects
+from projects import WORKSPACE_ROOT, get_all_projects
 
 app = Flask(__name__, template_folder="templates")
 
-# ---------------------------------------------------------------------------
-# Simple TTL cache — avoids re-parsing files on every request
-# ---------------------------------------------------------------------------
-
 _cache: dict = {"data": None, "at": 0.0}
-CACHE_TTL = 30  # seconds
+CACHE_TTL = 30
 
 
 def get_projects_cached() -> list[dict]:
@@ -37,10 +30,6 @@ def get_projects_cached() -> list[dict]:
     return _cache["data"]
 
 
-# ---------------------------------------------------------------------------
-# Routes
-# ---------------------------------------------------------------------------
-
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -49,26 +38,42 @@ def index():
 @app.route("/api/projects")
 def api_projects():
     projects = get_projects_cached()
-    return jsonify({
-        "projects": projects,
-        "updated_at": _cache["at"],
-    })
+    return jsonify({"projects": projects, "updated_at": _cache["at"]})
 
 
 @app.route("/api/refresh", methods=["POST"])
 def api_refresh():
-    """Force cache invalidation."""
     _cache["data"] = None
     projects = get_projects_cached()
-    return jsonify({
-        "projects": projects,
-        "updated_at": _cache["at"],
-    })
+    return jsonify({"projects": projects, "updated_at": _cache["at"]})
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
+@app.route("/api/doc/<project_name>/<doc_type>")
+def api_doc(project_name, doc_type):
+    if "/" in project_name or ".." in project_name:
+        return jsonify({"error": "Invalid project name"}), 400
+
+    doc_map = {
+        "roadmap": "docs/ROADMAP.md",
+        "readme": "README.md",
+        "architecture": "docs/ARCHITECTURE.md",
+    }
+    rel_path = doc_map.get(doc_type.lower())
+    if not rel_path:
+        return jsonify({"error": "Unknown doc type"}), 400
+
+    project_dir = WORKSPACE_ROOT / project_name
+    if not project_dir.is_dir():
+        return jsonify({"error": "Project not found"}), 404
+
+    doc_path = project_dir / rel_path
+    if not doc_path.exists():
+        return jsonify({"error": "File not found"}), 404
+
+    raw = doc_path.read_text(encoding="utf-8")
+    html = md_lib.markdown(raw, extensions=["tables", "fenced_code"])
+    return jsonify({"html": html})
+
 
 if __name__ == "__main__":
     port = 5100
