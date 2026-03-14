@@ -1,7 +1,7 @@
 # ROADMAP
 
 ## Overview
-Orchestration system for MpmWorkspace. Phase 1 focuses on a read-only dashboard that visualizes all project progress and next tasks in a single view. Autonomous agent control and communication gateways come in later phases. Currently in **Phase 1**.
+Orchestration system for MpmWorkspace. Phase 1 (read-only dashboard) is complete. Currently in **Phase 2** — autonomous agent control via Claude Code CLI sessions.
 
 ---
 
