@@ -11,14 +11,14 @@ Goal: Web dashboard that reads each project's handoff files and ROADMAP, and dis
 
 **Layout concept:** One column per project. Each column shows the ROADMAP phase progress and recent handoff entries as a flowing thread (newest at top). At a glance, the user can see where every project stands and what comes next.
 
-- [ ] Project scaffold (directory structure, CLAUDE.md, git init) ✓
-- [ ] Parse handoff files and ROADMAP.md per project
-- [ ] Multi-column thread view (one column per project)
+- [x] Project scaffold (directory structure, CLAUDE.md, git init)
+- [x] Parse handoff files and ROADMAP.md per project
+- [x] Multi-column thread view (one column per project)
   - ROADMAP phase + completion status at top
   - Handoff entries as scrollable thread below
   - "Next tasks" (unchecked ROADMAP items) highlighted
-- [ ] Auto-refresh (poll handoff directory for new files)
-- [ ] Basic web server (`dashboard/server.py`)
+- [x] Auto-refresh (poll handoff directory for new files)
+- [x] Basic web server (`dashboard/server.py`)
 
 ---
 

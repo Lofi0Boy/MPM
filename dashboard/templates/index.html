@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MPM Dashboard</title>
+  <style>
+    /* ---- Reset & Base ---- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #f5f5f5;
+      --surface:   #ffffff;
+      --border:    #e0e0e0;
+      --text:      #111111;
+      --secondary: #888888;
+      --muted:     #bbbbbb;
+      --accent:    #333333;
+      --done-text: #aaaaaa;
+      --radius:    6px;
+      --col-width: 320px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ---- Header ---- */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header h1 {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+
+    #status {
+      font-size: 11px;
+      color: var(--secondary);
+      margin-left: auto;
+    }
+
+    #refresh-btn {
+      font-size: 11px;
+      color: var(--secondary);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 3px 10px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    #refresh-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    /* ---- Board ---- */
+    #board {
+      display: flex;
+      gap: 16px;
+      padding: 20px 24px;
+      overflow-x: auto;
+      align-items: flex-start;
+    }
+
+    /* ---- Column ---- */
+    .col {
+      flex: 0 0 var(--col-width);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .col-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .col-name {
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.03em;
+    }
+
+    .col-phase-label {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--secondary);
+    }
+
+    /* Progress bar */
+    .progress-bar {
+      margin-top: 8px;
+      height: 2px;
+      background: var(--border);
+      border-radius: 1px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 1px;
+      transition: width 0.4s ease;
+    }
+
+    /* ---- Column body ---- */
+    .col-body {
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ---- Next tasks ---- */
+    .section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .task-item {
+      display: flex;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    .task-item::before {
+      content: "·";
+      color: var(--secondary);
+      flex-shrink: 0;
+    }
+
+    /* ---- Handoff thread ---- */
+    .thread {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .commit-card {
+      border-left: 2px solid var(--border);
+      padding: 0 0 0 10px;
+    }
+
+    .commit-meta {
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+
+    .commit-summary {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    .commit-details {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--secondary);
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    /* ---- ROADMAP items ---- */
+    .roadmap-items {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .roadmap-item {
+      display: flex;
+      gap: 7px;
+      font-size: 12px;
+      align-items: flex-start;
+    }
+
+    .check {
+      flex-shrink: 0;
+      width: 13px;
+      height: 13px;
+      margin-top: 1px;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .check.done {
+      background: var(--border);
+      border-color: var(--border);
+    }
+
+    .check.done::after {
+      content: "✓";
+      font-size: 9px;
+      color: var(--secondary);
+    }
+
+    .roadmap-item.done .item-text {
+      color: var(--done-text);
+      text-decoration: line-through;
+      text-decoration-color: var(--muted);
+    }
+
+    .item-text {
+      flex: 1;
+      line-height: 1.4;
+    }
+
+    /* ---- Error state ---- */
+    .error-msg {
+      font-size: 11px;
+      color: #c0392b;
+      padding: 8px 0;
+    }
+
+    /* ---- Empty state ---- */
+    .empty {
+      color: var(--muted);
+      font-size: 12px;
+      font-style: italic;
+    }
+
+    /* ---- Loading ---- */
+    #loading {
+      padding: 40px 24px;
+      color: var(--secondary);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>MPM</h1>
+  <button id="refresh-btn" onclick="forceRefresh()">Refresh</button>
+  <span id="status">Loading…</span>
+</header>
+
+<div id="loading">Loading projects…</div>
+<div id="board" style="display:none"></div>
+
+<script>
+  const board = document.getElementById('board');
+  const loading = document.getElementById('loading');
+  const status = document.getElementById('status');
+
+  // ---- Formatting helpers ----
+
+  function fmtTimestamp(ts) {
+    // ts format: yymmddhhmm  e.g. 2603140119
+    if (!ts || ts.length < 10) return ts;
+    const yy = ts.slice(0, 2);
+    const mm = ts.slice(2, 4);
+    const dd = ts.slice(4, 6);
+    const hh = ts.slice(6, 8);
+    const mn = ts.slice(8, 10);
+    return `20${yy}-${mm}-${dd} ${hh}:${mn}`;
+  }
+
+  function fmtUpdated(epochSec) {
+    const d = new Date(epochSec * 1000);
+    return `Updated ${d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+  }
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  // ---- Render ----
+
+  function renderPhaseProgress(phase) {
+    if (!phase) return '';
+    const pct = phase.total_count > 0
+      ? Math.round((phase.done_count / phase.total_count) * 100)
+      : 0;
+    return `
+      <div class="col-phase-label">
+        Phase ${phase.number}: ${escHtml(phase.name)} &nbsp;·&nbsp; ${phase.done_count}/${phase.total_count}
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width:${pct}%"></div>
+      </div>`;
+  }
+
+  function renderNextTasks(tasks) {
+    if (!tasks || tasks.length === 0) return '';
+    const items = tasks.map(t =>
+      `<div class="task-item">${escHtml(t)}</div>`
+    ).join('');
+    return `
+      <div>
+        <div class="section-title">Next</div>
+        <div class="task-list">${items}</div>
+      </div>`;
+  }
+
+  function renderThread(commits) {
+    if (!commits || commits.length === 0) return '';
+    const cards = [...commits].reverse().map(c => `
+      <div class="commit-card">
+        <div class="commit-meta">#${c.number} · ${fmtTimestamp(c.timestamp)}</div>
+        <div class="commit-summary">${escHtml(c.summary)}</div>
+        ${c.details ? `<div class="commit-details">${escHtml(c.details)}</div>` : ''}
+      </div>`
+    ).join('');
+    return `
+      <div>
+        <div class="section-title">Recent</div>
+        <div class="thread">${cards}</div>
+      </div>`;
+  }
+
+  function renderRoadmapItems(phase) {
+    if (!phase || phase.items.length === 0) return '';
+    const items = phase.items.map(item => {
+      const doneClass = item.done ? ' done' : '';
+      return `
+        <div class="roadmap-item${doneClass}">
+          <div class="check${doneClass}"></div>
+          <span class="item-text">${escHtml(item.text)}</span>
+        </div>`;
+    }).join('');
+    return `
+      <div>
+        <div class="section-title">Phase tasks</div>
+        <div class="roadmap-items">${items}</div>
+      </div>`;
+  }
+
+  function renderProject(p) {
+    const header = `
+      <div class="col-header">
+        <div class="col-name">${escHtml(p.name)}</div>
+        ${renderPhaseProgress(p.current_phase)}
+      </div>`;
+
+    let body = '';
+
+    if (p.error) {
+      body = `<div class="error-msg">${escHtml(p.error)}</div>`;
+    } else {
+      body = [
+        renderNextTasks(p.next_tasks),
+        renderRoadmapItems(p.current_phase),
+        renderThread(p.commits),
+      ].filter(Boolean).join('');
+
+      if (!body) body = '<span class="empty">No data yet.</span>';
+    }
+
+    return `<div class="col">${header}<div class="col-body">${body}</div></div>`;
+  }
+
+  function render(projects) {
+    if (!projects || projects.length === 0) {
+      board.innerHTML = '<span class="empty">No projects found.</span>';
+    } else {
+      board.innerHTML = projects.map(renderProject).join('');
+    }
+    loading.style.display = 'none';
+    board.style.display = 'flex';
+  }
+
+  // ---- Fetch ----
+
+  async function fetchProjects() {
+    const res = await fetch('/api/projects');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  async function load() {
+    try {
+      const data = await fetchProjects();
+      render(data.projects);
+      status.textContent = fmtUpdated(data.updated_at);
+    } catch (e) {
+      status.textContent = 'Error loading data';
+      console.error(e);
+    }
+  }
+
+  async function forceRefresh() {
+    status.textContent = 'Refreshing…';
+    try {
+      const res = await fetch('/api/refresh', { method: 'POST' });
+      const data = await res.json();
+      render(data.projects);
+      status.textContent = fmtUpdated(data.updated_at);
+    } catch (e) {
+      status.textContent = 'Refresh failed';
+      console.error(e);
+    }
+  }
+
+  // Auto-refresh every 30s
+  load();
+  setInterval(load, 30_000);
+</script>
+
+</body>
+</html>
