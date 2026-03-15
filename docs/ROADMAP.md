@@ -22,9 +22,9 @@ Goal: 각 프로젝트의 핸드오프 파일과 ROADMAP을 읽어 모든 프로
 
 Goal: tmux 기반 I/O 게이트웨이. 프로젝트별 AI 코딩 CLI 세션의 실시간 출력을 대시보드에서 보고, 명령을 보낼 수 있는 구조. CLI 종류에 비종속 (Claude Code, Codex, OpenCode 등). Telegram 브릿지. 전체 프로젝트 문서를 가진 비서 Agent와 대시보드 안에서 대화.
 
-- [ ] tmux 세션 관리 — 프로젝트별 세션 생성/감지, CLI 프로세스 패턴 매칭
-- [ ] `gateway/multiplexer.py` — tmux pipe-pane으로 실시간 출력 캡처, WebSocket으로 대시보드 전달
-- [ ] 대시보드 실시간 터미널 뷰 — 프로젝트별 CLI 출력 스트리밍 + 명령 입력
+- [x] tmux 세션 관리 — 프로젝트별 세션 생성/감지, CLI 프로세스 패턴 매칭
+- [x] `gateway/multiplexer.py` — tmux capture-pane 폴링 + WebSocket으로 대시보드 전달
+- [x] 대시보드 실시간 터미널 뷰 — 프로젝트별 CLI 출력 스트리밍 + 명령 입력
 - [ ] Agent 상태 표시 — 응답 중 / 응답 완료 / 유휴 / 꺼짐 구분, 컬럼 헤더에 상태 인디케이터
 - [ ] 응답 완료 인터랙션 — 완료 시 대시보드에서 바로 후속 명령 입력 가능
 - [ ] `gateway/telegram.py` — 출력을 Telegram으로 전달, 답장을 tmux send-keys로 주입
