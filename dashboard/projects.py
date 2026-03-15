@@ -203,6 +203,7 @@ def get_unhandoffed_commits(project_dir: Path, since: Optional[datetime]) -> lis
     """Return git commits made after `since` (i.e., not yet captured in a handoff)."""
     cmd = ["git", "-C", str(project_dir), "log", "--format=%h|%s"]
     if since:
+        # Use 1-minute buffer to avoid edge cases
         cmd.append(f"--after={since.strftime('%Y-%m-%d %H:%M')}")
     else:
         cmd += ["-n", "5"]
@@ -246,8 +247,13 @@ def load_project(project_dir: Path) -> ProjectData:
                     next_tasks=[f"Parse error: {e}"],
                 ))
 
-    # Commits not yet captured in any handoff
-    since_dt = parse_handoff_dt(handoffs[0].filename) if handoffs else None
+    # Use latest handoff file's mtime (not filename) — filename = session start,
+    # mtime = when handoff was actually last written
+    since_dt = None
+    if handoffs:
+        latest_hf_path = handoff_dir / f"{handoffs[0].filename}.md"
+        if latest_hf_path.exists():
+            since_dt = datetime.fromtimestamp(latest_hf_path.stat().st_mtime)
     unhandoffed = get_unhandoffed_commits(project_dir, since_dt)
 
     return ProjectData(

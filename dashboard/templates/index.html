@@ -61,9 +61,16 @@
     }
     .top-btn:hover { color: var(--text); border-color: #aaa; }
 
+    /* ---- Board wrapper (relative for post-it positioning) ---- */
+    #board-wrapper {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
     /* ---- Board ---- */
     #board {
-      flex: 1;
+      height: 100%;
       display: flex;
       gap: 14px;
       padding: 16px 20px;
@@ -212,7 +219,7 @@
       white-space: nowrap;
       text-overflow: ellipsis;
     }
-    .task-row::before { content: '→'; color: var(--muted); flex-shrink: 0; }
+    .task-row::before { content: '\2192'; color: var(--muted); flex-shrink: 0; }
 
     /* ---- Stream ---- */
     .stream {
@@ -361,7 +368,7 @@
       gap: 6px;
       padding: 1px 0;
     }
-    .next-row::before { content: '→'; color: var(--muted); flex-shrink: 0; }
+    .next-row::before { content: '\2192'; color: var(--muted); flex-shrink: 0; }
 
     /* ---- Docs modal ---- */
     .modal-overlay {
@@ -462,17 +469,159 @@
     .md-content a { color: #555; }
 
     .modal-loading { color: var(--muted); font-size: 12px; padding: 20px 0; }
+
+    /* ---- Post-it Notes ---- */
+    .note {
+      position: absolute;
+      z-index: 500;
+      width: 160px;
+      min-height: 48px;
+      border-radius: 3px;
+      box-shadow: 2px 3px 10px rgba(0,0,0,0.12);
+      display: flex;
+      flex-direction: column;
+      transition: box-shadow 0.15s, width 0.2s, min-height 0.2s;
+      user-select: none;
+    }
+    .note:hover { box-shadow: 3px 5px 16px rgba(0,0,0,0.18); }
+    .note.dragging {
+      box-shadow: 6px 8px 24px rgba(0,0,0,0.22);
+      opacity: 0.92;
+      z-index: 600;
+    }
+    .note.expanded {
+      width: 240px;
+      min-height: 180px;
+      z-index: 550;
+    }
+
+    /* Color themes */
+    .note.c-yellow  { background: #fff9c4; border: 1px solid #f0e68c; }
+    .note.c-pink    { background: #fce4ec; border: 1px solid #f3b4c4; }
+    .note.c-blue    { background: #e3f2fd; border: 1px solid #a8c8e8; }
+    .note.c-green   { background: #e8f5e9; border: 1px solid #a5d6a7; }
+
+    .note-header {
+      padding: 8px 10px 4px;
+      cursor: grab;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .note.dragging .note-header { cursor: grabbing; }
+
+    .note-title {
+      flex: 1;
+      font-size: 12px;
+      font-weight: 600;
+      color: #333;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .note.expanded .note-title {
+      white-space: normal;
+      overflow: visible;
+    }
+
+    .note-project-tag {
+      font-size: 9px;
+      color: #888;
+      padding: 6px 10px 0;
+      font-style: italic;
+    }
+
+    /* Collapsed: only title visible */
+    .note-body { display: none; }
+    .note.expanded .note-body {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 4px 10px 10px;
+      flex: 1;
+    }
+
+    .note-desc {
+      font-size: 11px;
+      color: #444;
+      line-height: 1.5;
+      flex: 1;
+      resize: none;
+      border: none;
+      background: transparent;
+      font-family: inherit;
+      outline: none;
+      min-height: 50px;
+    }
+
+    .note-title-input {
+      font-size: 12px;
+      font-weight: 600;
+      color: #333;
+      border: none;
+      background: transparent;
+      font-family: inherit;
+      outline: none;
+      width: 100%;
+      padding: 0;
+    }
+
+    .note-actions {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .note-action-btn {
+      font-size: 10px;
+      color: #777;
+      background: rgba(255,255,255,0.5);
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 3px;
+      padding: 2px 7px;
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+    }
+    .note-action-btn:hover { color: #333; background: rgba(255,255,255,0.8); }
+    .note-action-btn.danger:hover { color: #c00; }
+
+    .color-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(0,0,0,0.15);
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .color-dot:hover { transform: scale(1.2); }
+    .color-dot.d-yellow { background: #fff9c4; }
+    .color-dot.d-pink   { background: #fce4ec; }
+    .color-dot.d-blue   { background: #e3f2fd; }
+    .color-dot.d-green  { background: #e8f5e9; }
+
+    /* Column highlight on drag-over */
+    .col.note-hover {
+      outline: 2px dashed #aaa;
+      outline-offset: -2px;
+      border-radius: 6px;
+    }
   </style>
 </head>
 <body>
 
 <header>
   <h1>MPM</h1>
+  <button class="top-btn" onclick="addNote()">+ Note</button>
   <button class="top-btn" onclick="forceRefresh()">Refresh</button>
-  <span id="status">Loading…</span>
+  <span id="status">Loading...</span>
 </header>
 
-<div id="board"></div>
+<div id="board-wrapper">
+  <div id="board"></div>
+  <div id="notes-layer"></div>
+</div>
 
 <!-- Docs modal -->
 <div class="modal-overlay hidden" id="docs-modal" onclick="handleOverlayClick(event)">
@@ -480,7 +629,7 @@
     <div class="modal-header">
       <span class="modal-project" id="modal-project-name"></span>
       <div class="modal-tabs" id="modal-tabs"></div>
-      <button class="modal-close" onclick="closeDocs()">✕</button>
+      <button class="modal-close" onclick="closeDocs()">&#10005;</button>
     </div>
     <div class="modal-body">
       <div id="modal-content" class="md-content"></div>
@@ -490,12 +639,15 @@
 
 <script>
   const board = document.getElementById('board');
+  const boardWrapper = document.getElementById('board-wrapper');
+  const notesLayer = document.getElementById('notes-layer');
   const statusEl = document.getElementById('status');
 
   // ---- State ----
-  const expandedTaskCols = new Set();   // project names with tasks expanded
+  const expandedTaskCols = new Set();
   let modalProject = null;
   let modalTab = 'roadmap';
+  let notesData = [];  // loaded from server
 
   // ---- Helpers ----
   function fmtDate(fn) {
@@ -503,16 +655,15 @@
     const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const m = parseInt(fn.slice(2,4),10) - 1;
     const d = parseInt(fn.slice(4,6),10);
-    return `${mo[m]} ${d} · ${fn.slice(6,8)}:${fn.slice(8,10)}`;
+    return `${mo[m]} ${d} \u00b7 ${fn.slice(6,8)}:${fn.slice(8,10)}`;
   }
 
   function esc(s) {
     return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  // Shorten task text: strip sub-detail after " — " or " (" and backticks
   function shortTask(t) {
-    return t.split(' — ')[0].split(' (')[0].replace(/`/g,'').trim();
+    return t.split(' \u2014 ')[0].split(' (')[0].replace(/`/g,'').trim();
   }
 
   // ---- Streamlines ----
@@ -528,7 +679,7 @@
     });
   }
 
-  // ---- Card expand/collapse (handoff cards only, focus-based) ----
+  // ---- Card expand/collapse ----
   function collapseAll() {
     document.querySelectorAll('.card.handoff.expanded').forEach(c => c.classList.remove('expanded'));
   }
@@ -545,13 +696,14 @@
     });
   }
 
-  document.addEventListener('click', () => {
-    collapseAll();
-    requestAnimationFrame(fixStreamlines);
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.note')) {
+      collapseAll();
+      requestAnimationFrame(fixStreamlines);
+    }
   });
 
-  // ---- Header details toggle (persistent, click anywhere on label) ----
-  // collapsedCols = set of project names that are currently collapsed
+  // ---- Header details toggle ----
   const collapsedCols = new Set();
 
   function toggleColDetails(e, projectName) {
@@ -611,7 +763,7 @@
 
   async function loadDoc() {
     const el = document.getElementById('modal-content');
-    el.innerHTML = '<div class="modal-loading">Loading…</div>';
+    el.innerHTML = '<div class="modal-loading">Loading...</div>';
     try {
       const res = await fetch(`/api/doc/${encodeURIComponent(modalProject)}/${modalTab}`);
       const data = await res.json();
@@ -625,7 +777,7 @@
     }
   }
 
-  // ---- Render ----
+  // ---- Render project columns ----
   function renderCurrentCard(p) {
     const commits = p.unhandoffed_commits || [];
     let inner;
@@ -686,7 +838,7 @@
            onclick="toggleColDetails(event, '${esc(p.name)}')">
         <div class="col-name-row">
           <span class="col-name">${esc(p.name)}</span>
-          <span class="col-chevron">›</span>
+          <span class="col-chevron">\u203a</span>
           <button class="docs-btn" onclick="event.stopPropagation(); openDocs('${esc(p.name)}')">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -697,7 +849,7 @@
           </button>
         </div>
         ${cp ? `
-          <div class="col-phase">Phase ${cp.number}: ${esc(cp.name)} · ${cp.done_count}/${cp.total_count}</div>
+          <div class="col-phase">Phase ${cp.number}: ${esc(cp.name)} \u00b7 ${cp.done_count}/${cp.total_count}</div>
           <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
           <div class="col-details">
             ${cp.goal ? `<div class="col-goal">${esc(cp.goal)}</div>` : ''}
@@ -709,7 +861,7 @@
     const validHandoffs = (p.handoffs||[]).filter(h => h.commits.length > 0 || h.next_tasks.length > 0);
     const cards = [renderCurrentCard(p), ...validHandoffs.map(renderHandoffCard)].join('');
 
-    return `<div class="col">${label}<div class="stream">${cards}</div></div>`;
+    return `<div class="col" data-project="${esc(p.name)}">${label}<div class="stream">${cards}</div></div>`;
   }
 
   function render(projects) {
@@ -717,6 +869,277 @@
     bindCards();
     applyDetailsState();
     requestAnimationFrame(fixStreamlines);
+  }
+
+  // ======================================================================
+  // POST-IT NOTES
+  // ======================================================================
+
+  function getOwnerProject(noteX, noteWidth) {
+    const noteCenterX = noteX + noteWidth / 2;
+    const wrapperRect = boardWrapper.getBoundingClientRect();
+    for (const col of document.querySelectorAll('.col')) {
+      const rect = col.getBoundingClientRect();
+      // Convert to wrapper-relative
+      const colLeft = rect.left - wrapperRect.left;
+      const colRight = rect.right - wrapperRect.left;
+      if (noteCenterX >= colLeft && noteCenterX <= colRight) {
+        return col.dataset.project || null;
+      }
+    }
+    return null;
+  }
+
+  function highlightCol(noteX, noteWidth) {
+    const noteCenterX = noteX + noteWidth / 2;
+    const wrapperRect = boardWrapper.getBoundingClientRect();
+    document.querySelectorAll('.col.note-hover').forEach(c => c.classList.remove('note-hover'));
+    for (const col of document.querySelectorAll('.col')) {
+      const rect = col.getBoundingClientRect();
+      const colLeft = rect.left - wrapperRect.left;
+      const colRight = rect.right - wrapperRect.left;
+      if (noteCenterX >= colLeft && noteCenterX <= colRight) {
+        col.classList.add('note-hover');
+        return;
+      }
+    }
+  }
+
+  function clearColHighlight() {
+    document.querySelectorAll('.col.note-hover').forEach(c => c.classList.remove('note-hover'));
+  }
+
+  function renderNote(idea) {
+    const el = document.createElement('div');
+    el.className = `note c-${idea.color || 'yellow'}`;
+    el.dataset.id = idea.id;
+    el.style.left = idea.x + 'px';
+    el.style.top = idea.y + 'px';
+
+    const projectTag = idea.project
+      ? `<div class="note-project-tag">${esc(idea.project)}</div>`
+      : '';
+
+    el.innerHTML = `
+      ${projectTag}
+      <div class="note-header">
+        <span class="note-title">${esc(idea.title || 'Untitled')}</span>
+      </div>
+      <div class="note-body">
+        <input class="note-title-input" value="${esc(idea.title || '')}" placeholder="Title..." />
+        <textarea class="note-desc" placeholder="Describe your idea...">${esc(idea.description || '')}</textarea>
+        <div class="note-actions">
+          <span class="color-dot d-yellow" onclick="changeNoteColor(event, '${idea.id}', 'yellow')"></span>
+          <span class="color-dot d-pink"   onclick="changeNoteColor(event, '${idea.id}', 'pink')"></span>
+          <span class="color-dot d-blue"   onclick="changeNoteColor(event, '${idea.id}', 'blue')"></span>
+          <span class="color-dot d-green"  onclick="changeNoteColor(event, '${idea.id}', 'green')"></span>
+          <span style="flex:1"></span>
+          <button class="note-action-btn danger" onclick="deleteNote(event, '${idea.id}')">Delete</button>
+        </div>
+      </div>`;
+
+    // Drag
+    const header = el.querySelector('.note-header');
+    let dragState = null;
+
+    header.addEventListener('mousedown', e => {
+      if (e.target.closest('.note-action-btn') || e.target.closest('.color-dot')) return;
+      e.preventDefault();
+      el.classList.add('dragging');
+      dragState = {
+        startX: e.clientX,
+        startY: e.clientY,
+        origX: parseInt(el.style.left) || 0,
+        origY: parseInt(el.style.top) || 0,
+      };
+
+      function onMove(ev) {
+        const dx = ev.clientX - dragState.startX;
+        const dy = ev.clientY - dragState.startY;
+        const newX = dragState.origX + dx;
+        const newY = Math.max(0, dragState.origY + dy);
+        el.style.left = newX + 'px';
+        el.style.top = newY + 'px';
+        highlightCol(newX, el.offsetWidth);
+      }
+
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        el.classList.remove('dragging');
+        clearColHighlight();
+
+        const newX = parseInt(el.style.left) || 0;
+        const newY = parseInt(el.style.top) || 0;
+        const project = getOwnerProject(newX, el.offsetWidth);
+
+        // Check if actually moved
+        if (dragState && (newX !== dragState.origX || newY !== dragState.origY)) {
+          updateNote(idea.id, { x: newX, y: newY, project: project });
+        }
+        dragState = null;
+      }
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    // Double-click to expand/collapse
+    el.addEventListener('dblclick', e => {
+      if (e.target.closest('.note-desc') || e.target.closest('.note-title-input')) return;
+      e.stopPropagation();
+      el.classList.toggle('expanded');
+      if (el.classList.contains('expanded')) {
+        const inp = el.querySelector('.note-title-input');
+        if (inp) inp.focus();
+      }
+    });
+
+    // Auto-save on blur
+    const titleInput = el.querySelector('.note-title-input');
+    const descInput = el.querySelector('.note-desc');
+
+    if (titleInput) {
+      titleInput.addEventListener('blur', () => {
+        const newTitle = titleInput.value.trim();
+        if (newTitle !== idea.title) {
+          el.querySelector('.note-title').textContent = newTitle || 'Untitled';
+          updateNote(idea.id, { title: newTitle });
+        }
+      });
+      titleInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); descInput.focus(); }
+      });
+    }
+
+    if (descInput) {
+      descInput.addEventListener('blur', () => {
+        const newDesc = descInput.value.trim();
+        if (newDesc !== idea.description) {
+          updateNote(idea.id, { description: newDesc });
+        }
+      });
+    }
+
+    return el;
+  }
+
+  function renderNotes() {
+    notesLayer.innerHTML = '';
+    notesData.forEach(idea => {
+      notesLayer.appendChild(renderNote(idea));
+    });
+  }
+
+  // ---- Notes CRUD ----
+  async function loadNotes() {
+    try {
+      notesData = await fetch('/api/ideas').then(r => r.json());
+      renderNotes();
+    } catch(e) { /* silent */ }
+  }
+
+  async function addNote() {
+    // Place near center of visible board area
+    const wrapperRect = boardWrapper.getBoundingClientRect();
+    const x = Math.round(wrapperRect.width / 2 - 80 + (Math.random() - 0.5) * 100);
+    const y = Math.round(40 + Math.random() * 80);
+
+    try {
+      const res = await fetch('/api/ideas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '', description: '', x, y }),
+      });
+      const idea = await res.json();
+      notesData.push(idea);
+      const el = renderNote(idea);
+      notesLayer.appendChild(el);
+      // Auto-expand for immediate editing
+      el.classList.add('expanded');
+      const inp = el.querySelector('.note-title-input');
+      if (inp) setTimeout(() => inp.focus(), 50);
+    } catch(e) { /* silent */ }
+  }
+
+  async function updateNote(id, fields) {
+    // Optimistic update in local data
+    const note = notesData.find(n => n.id === id);
+    if (note) Object.assign(note, fields);
+
+    // Update project tag in DOM if project changed
+    if ('project' in fields) {
+      const el = notesLayer.querySelector(`[data-id="${id}"]`);
+      if (el) {
+        let tag = el.querySelector('.note-project-tag');
+        if (fields.project) {
+          if (!tag) {
+            tag = document.createElement('div');
+            tag.className = 'note-project-tag';
+            el.insertBefore(tag, el.firstChild);
+          }
+          tag.textContent = fields.project;
+        } else if (tag) {
+          tag.remove();
+        }
+      }
+    }
+
+    try {
+      await fetch(`/api/ideas/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fields),
+      });
+    } catch(e) { /* silent */ }
+  }
+
+  async function deleteNote(e, id) {
+    e.stopPropagation();
+    const el = notesLayer.querySelector(`[data-id="${id}"]`);
+    if (el) el.remove();
+    notesData = notesData.filter(n => n.id !== id);
+    try {
+      await fetch(`/api/ideas/${id}`, { method: 'DELETE' });
+    } catch(e) { /* silent */ }
+  }
+
+  function changeNoteColor(e, id, color) {
+    e.stopPropagation();
+    const el = notesLayer.querySelector(`[data-id="${id}"]`);
+    if (el) {
+      el.className = el.className.replace(/c-\w+/, `c-${color}`);
+    }
+    updateNote(id, { color });
+  }
+
+  async function promoteNote(e, id) {
+    e.stopPropagation();
+    const note = notesData.find(n => n.id === id);
+    if (!note) return;
+
+    const name = prompt('Project folder name:', note.title.replace(/\s+/g, '_') || 'new_project');
+    if (!name) return;
+
+    try {
+      const res = await fetch(`/api/ideas/${id}/promote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_name: name }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        alert(data.error);
+        return;
+      }
+      // Remove note and reload everything
+      const el = notesLayer.querySelector(`[data-id="${id}"]`);
+      if (el) el.remove();
+      notesData = notesData.filter(n => n.id !== id);
+      forceRefresh();
+    } catch(e) {
+      alert('Failed to promote note.');
+    }
   }
 
   // ---- Fetch ----
@@ -730,7 +1153,7 @@
   }
 
   async function forceRefresh() {
-    statusEl.textContent = '…';
+    statusEl.textContent = '...';
     try {
       const data = await fetch('/api/refresh',{method:'POST'}).then(r=>r.json());
       render(data.projects);
@@ -739,7 +1162,27 @@
     } catch(e) { statusEl.textContent = 'Error'; }
   }
 
+  // ---- Keyboard shortcuts (keyup for IME compat) ----
+  document.addEventListener('keyup', e => {
+    if (e.key === 'Escape') {
+      const expanded = notesLayer.querySelector('.note.expanded');
+      if (expanded) {
+        expanded.querySelector('.note-title-input')?.blur();
+        expanded.querySelector('.note-desc')?.blur();
+        expanded.classList.remove('expanded');
+      }
+    }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.code === 'KeyM') {
+      e.preventDefault();
+      addNote();
+    }
+  });
+
+  // ---- Init ----
   load();
+  loadNotes();
   setInterval(load, 30_000);
 </script>
 </body>

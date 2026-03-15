@@ -19,6 +19,7 @@ Goal: Web dashboard that reads each project's handoff files and ROADMAP, and dis
   - "Next tasks" (unchecked ROADMAP items) highlighted
 - [x] Auto-refresh (poll handoff directory for new files)
 - [x] Basic web server (`dashboard/server.py`)
+- [x] Post-it notes — draggable idea memos with project ownership detection, color themes, `data/ideas.json` persistence
 
 ---
 

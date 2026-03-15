@@ -35,8 +35,12 @@ MPM/
 │   ├── orchestrator.py         # Sub-agent lifecycle management
 │   ├── verifier.py             # Task result verification
 │   └── state.py                # In-memory + disk state store
+├── data/
+│   └── ideas.json              # Post-it notes storage (position, color, project)
 ├── dashboard/                  # Web UI
-│   └── ...
+│   ├── server.py               # Flask server — project + ideas APIs
+│   ├── projects.py             # ROADMAP/handoff parser
+│   └── templates/index.html    # Board UI + post-it notes overlay
 └── gateway/                    # I/O multiplexer
     ├── telegram.py             # Telegram bridge
     └── multiplexer.py          # Routes CLI I/O to channels
