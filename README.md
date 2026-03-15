@@ -1,14 +1,14 @@
-# MPM — Multi-Project Manager
+# MPM — 멀티 프로젝트 매니저
 
-A dashboard and orchestration system for managing all projects in MpmWorkspace.
+MpmWorkspace의 모든 프로젝트를 관리하기 위한 대시보드 및 오케스트레이션 시스템.
 
-Phase 1 is a read-only web dashboard: it reads each project's handoff files and ROADMAP, and displays everything in a multi-column thread view — one column per project, showing progress and next tasks at a glance.
+Phase 1은 읽기 전용 웹 대시보드로, 각 프로젝트의 핸드오프 파일과 ROADMAP을 읽어 멀티 컬럼 스레드 뷰에 표시합니다 — 프로젝트당 하나의 컬럼으로 진행 상황과 다음 작업을 한눈에 보여줍니다.
 
-Later phases add autonomous agent control (MPM daemon spawning Claude Code sessions per project) and communication gateways (Telegram, live CLI output).
+이후 Phase에서는 자율 에이전트 제어(MPM 데몬이 프로젝트별 Claude Code 세션을 생성)와 커뮤니케이션 게이트웨이(Telegram, 실시간 CLI 출력)가 추가됩니다.
 
 ---
 
-## Dashboard (Phase 1)
+## 대시보드 (Phase 1)
 
 ```
 ┌─────────────────┬─────────────────┬─────────────────┐
@@ -31,48 +31,48 @@ Later phases add autonomous agent control (MPM daemon spawning Claude Code sessi
 
 ---
 
-## Architecture Overview
+## 아키텍처 개요
 
 ```
-[MPM Daemon — Python process, always running]         ← Phase 2
-  ├── Per-project Claude Code sessions (one per project, persistent)
-  ├── Async orchestration (parallel sub-agents, as_completed)
-  ├── Result verification engine
-  ├── ROADMAP + handoff auto-update
-  └── I/O Multiplexer                                 ← Phase 3
-        ├── Web Dashboard (renders CLI output)
-        └── Telegram Bridge (toggle on/off)
+[MPM 데몬 — Python 프로세스, 상시 실행]              ← Phase 2
+  ├── 프로젝트별 Claude Code 세션 (프로젝트당 하나, 영구)
+  ├── 비동기 오케스트레이션 (병렬 서브 에이전트, as_completed)
+  ├── 결과 검증 엔진
+  ├── ROADMAP + 핸드오프 자동 업데이트
+  └── I/O 멀티플렉서                                 ← Phase 3
+        ├── 웹 대시보드 (CLI 출력 렌더링)
+        └── Telegram 브릿지 (토글 on/off)
 ```
 
 ---
 
-## Projects Managed
+## 관리 대상 프로젝트
 
-| Project | Description |
+| 프로젝트 | 설명 |
 |---------|-------------|
-| `saksak-kimchi` | Kimchi premium arbitrage bot |
-| `JHomelab_server` | Home server backend |
-| `JHomelab_app` | Home lab Android/web app |
+| `saksak-kimchi` | 김치 프리미엄 차익거래 봇 |
+| `JHomelab_server` | 홈 서버 백엔드 |
+| `JHomelab_app` | 홈 랩 Android/웹 앱 |
 
 ---
 
-## Components
+## 구성 요소
 
-| Directory | Phase | Role |
+| 디렉토리 | Phase | 역할 |
 |-----------|-------|------|
-| `dashboard/` | 1 | Web UI — read-only project status view |
-| `daemon/` | 2 | Core orchestration process |
-| `gateway/` | 3 | I/O multiplexer (CLI / Telegram bridge) |
+| `dashboard/` | 1 | 웹 UI — 읽기 전용 프로젝트 상태 뷰 |
+| `daemon/` | 2 | 핵심 오케스트레이션 프로세스 |
+| `gateway/` | 3 | I/O 멀티플렉서 (CLI / Telegram 브릿지) |
 
 ---
 
-## Key Design Decisions
+## 주요 설계 결정
 
-| Decision | Choice | Reason |
+| 결정 사항 | 선택 | 이유 |
 |----------|--------|--------|
-| Agent execution | Claude Code CLI (`--resume`) | Full local file control, no tool reimplementation |
-| Session model | One persistent session per project | Avoid repeated doc loading; compaction triggers handoff + session reset |
-| PM Agent | Claude Code CLI (cwd: MpmWorkspace/) | Needs access to all project files |
-| State management | Python daemon holds state | Claude API calls are stateless; daemon provides continuity |
-| User communication | CLI as base; dashboard renders output; Telegram bridges I/O | Single source of truth, channel-agnostic |
-| Parallel execution | `asyncio.as_completed` | Handle sub-agent completions as they arrive, not serially |
+| 에이전트 실행 | Claude Code CLI (`--resume`) | 완전한 로컬 파일 제어, 도구 재구현 불필요 |
+| 세션 모델 | 프로젝트당 하나의 영구 세션 | 반복적인 문서 로딩 방지; 압축 시 핸드오프 + 세션 리셋 트리거 |
+| PM 에이전트 | Claude Code CLI (cwd: MpmWorkspace/) | 모든 프로젝트 파일에 접근 필요 |
+| 상태 관리 | Python 데몬이 상태 보유 | Claude API 호출은 무상태; 데몬이 연속성 제공 |
+| 사용자 커뮤니케이션 | CLI가 기본; 대시보드가 출력 렌더링; Telegram이 I/O 브릿지 | 단일 정보 소스, 채널 무관 |
+| 병렬 실행 | `asyncio.as_completed` | 서브 에이전트 완료를 순차가 아닌 도착 순으로 처리 |

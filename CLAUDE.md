@@ -1,17 +1,17 @@
-# MPM — Development Rules
+# MPM — 개발 규칙
 
-Inherits common rules from `../CLAUDE.md`.
-
----
-
-## Project Boundary
-
-This project manages other projects in MpmWorkspace. Do not modify files in sibling project directories unless explicitly instructed.
+`../CLAUDE.md`의 공통 규칙을 상속합니다.
 
 ---
 
-## Code Guidelines
+## 프로젝트 경계
 
-- Daemon must never silently swallow errors — surface them loudly so failures are obvious.
-- State must be persisted to disk on every change (crash recovery).
-- All sub-agent communication is async — no blocking waits.
+이 프로젝트는 MpmWorkspace의 다른 프로젝트들을 관리합니다. 명시적으로 지시받지 않는 한 형제 프로젝트 디렉토리의 파일을 수정하지 마세요.
+
+---
+
+## 코드 가이드라인
+
+- 데몬은 절대 에러를 조용히 삼키면 안 됩니다 — 실패가 명확히 보이도록 에러를 눈에 띄게 표시하세요.
+- 상태는 모든 변경 시 디스크에 저장되어야 합니다 (충돌 복구).
+- 모든 서브 에이전트 통신은 비동기입니다 — 블로킹 대기를 하지 마세요.

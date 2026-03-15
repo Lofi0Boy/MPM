@@ -1,54 +1,54 @@
 # ROADMAP
 
-## Overview
-Orchestration system for MpmWorkspace. Phase 1 (read-only dashboard) is complete. Currently in **Phase 2** — autonomous agent control via Claude Code CLI sessions.
+## 개요
+MpmWorkspace를 위한 오케스트레이션 시스템. Phase 1(읽기 전용 대시보드)은 완료. 현재 **Phase 2** — Claude Code CLI 세션을 통한 자율 에이전트 제어 진행 중.
 
 ---
 
-## Phase 1: Dashboard
+## Phase 1: 대시보드
 
-Goal: Web dashboard that reads each project's handoff files and ROADMAP, and displays all projects side-by-side as a live thread-style progress view. Read-only — no agent control yet.
+목표: 각 프로젝트의 핸드오프 파일과 ROADMAP을 읽어 모든 프로젝트를 실시간 스레드 스타일 진행 뷰로 나란히 표시하는 웹 대시보드. 읽기 전용 — 아직 에이전트 제어 없음.
 
-**Layout concept:** One column per project. Each column shows the ROADMAP phase progress and recent handoff entries as a flowing thread (newest at top). At a glance, the user can see where every project stands and what comes next.
+**레이아웃 컨셉:** 프로젝트당 하나의 컬럼. 각 컬럼은 ROADMAP Phase 진행 상황과 최근 핸드오프 항목을 흐르는 스레드 형태로 보여줌 (최신이 상단). 한눈에 모든 프로젝트의 현재 위치와 다음 할 일을 파악 가능.
 
-- [x] Project scaffold (directory structure, CLAUDE.md, git init)
-- [x] Parse handoff files and ROADMAP.md per project
-- [x] Multi-column thread view (one column per project)
-  - ROADMAP phase + completion status at top
-  - Handoff entries as scrollable thread below
-  - "Next tasks" (unchecked ROADMAP items) highlighted
-- [x] Auto-refresh (poll handoff directory for new files)
-- [x] Basic web server (`dashboard/server.py`)
-- [x] Post-it notes — draggable idea memos with project ownership detection, color themes, `data/ideas.json` persistence
-
----
-
-## Phase 2: MPM Agent (Autonomous Control)
-
-Goal: MPM daemon spawns and manages Claude Code CLI sessions per project. PM Agent reads ROADMAPs and handoffs, determines next tasks, dispatches to sub-agents, and verifies results — autonomously where possible, escalating to user when needed.
-
-- [ ] `daemon/orchestrator.py` — spawn Claude Code CLI sessions, maintain per-project session IDs
-- [ ] `daemon/state.py` — in-memory + disk state store (crash recovery)
-- [ ] Parallel task execution (`asyncio.as_completed`)
-- [ ] Session reset on compaction event (detect → write handoff → respawn)
-- [ ] `daemon/verifier.py` — git log / test run / health check / screenshot verification
-- [ ] PM Agent loop — reads ROADMAPs, assigns tasks, evaluates results, updates docs
+- [x] 프로젝트 스캐폴드 (디렉토리 구조, CLAUDE.md, git init)
+- [x] 프로젝트별 핸드오프 파일 및 ROADMAP.md 파싱
+- [x] 멀티 컬럼 스레드 뷰 (프로젝트당 하나의 컬럼)
+  - 상단에 ROADMAP Phase + 완료 상태
+  - 아래에 스크롤 가능한 핸드오프 항목 스레드
+  - "다음 작업" (미체크 ROADMAP 항목) 강조 표시
+- [x] 자동 새로고침 (핸드오프 디렉토리의 새 파일 폴링)
+- [x] 기본 웹 서버 (`dashboard/server.py`)
+- [x] 포스트잇 노트 — 프로젝트 소속 감지, 색상 테마, `data/ideas.json` 영구 저장이 가능한 드래그 가능 아이디어 메모
 
 ---
 
-## Phase 3: Gateway (I/O Multiplexer)
+## Phase 2: MPM 에이전트 (자율 제어)
 
-Goal: CLI is the base I/O layer. Dashboard renders it live. Telegram bridges it as a toggle.
+목표: MPM 데몬이 프로젝트별 Claude Code CLI 세션을 생성하고 관리. PM 에이전트가 ROADMAP과 핸드오프를 읽고, 다음 작업을 결정하고, 서브 에이전트에 배분하고, 결과를 검증 — 가능한 한 자율적으로, 필요시 사용자에게 에스컬레이션.
 
-- [ ] `gateway/multiplexer.py` — route Claude CLI stdout to registered channels
-- [ ] Dashboard upgraded to show live agent output (not just static handoff files)
-- [ ] `gateway/telegram.py` — forward output to Telegram; inject replies as stdin
-- [ ] Telegram toggle setting
-- [ ] Pending decisions queue — items awaiting user input surfaced in dashboard + Telegram
+- [ ] `daemon/orchestrator.py` — Claude Code CLI 세션 생성, 프로젝트별 세션 ID 유지
+- [ ] `daemon/state.py` — 인메모리 + 디스크 상태 저장소 (충돌 복구)
+- [ ] 병렬 작업 실행 (`asyncio.as_completed`)
+- [ ] 압축 이벤트 시 세션 리셋 (감지 → 핸드오프 작성 → 재생성)
+- [ ] `daemon/verifier.py` — git log / 테스트 실행 / 헬스 체크 / 스크린샷 검증
+- [ ] PM 에이전트 루프 — ROADMAP 읽기, 작업 할당, 결과 평가, 문서 업데이트
 
 ---
 
-## External Connections
+## Phase 3: 게이트웨이 (I/O 멀티플렉서)
 
-Part of the **MpmWorkspace** alongside `saksak-kimchi`, `JHomelab_server`, `JHomelab_app`.
-MPM reads from these projects (handoffs, ROADMAPs) but does not modify their files except through their own Claude Code sessions.
+목표: CLI가 기본 I/O 레이어. 대시보드가 실시간으로 렌더링. Telegram이 토글로 브릿지.
+
+- [ ] `gateway/multiplexer.py` — Claude CLI stdout를 등록된 채널로 라우팅
+- [ ] 대시보드를 실시간 에이전트 출력 표시로 업그레이드 (정적 핸드오프 파일이 아닌)
+- [ ] `gateway/telegram.py` — 출력을 Telegram으로 전달; 답장을 stdin으로 주입
+- [ ] Telegram 토글 설정
+- [ ] 보류 중 결정 큐 — 사용자 입력 대기 항목을 대시보드 + Telegram에 표시
+
+---
+
+## 외부 연결
+
+**MpmWorkspace** 내 `saksak-kimchi`, `JHomelab_server`, `JHomelab_app`과 함께 위치.
+MPM은 이 프로젝트들의 핸드오프, ROADMAP을 읽지만, 해당 프로젝트의 Claude Code 세션을 통해서만 파일을 수정합니다.
