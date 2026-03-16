@@ -203,8 +203,7 @@ def get_unhandoffed_commits(project_dir: Path, since: Optional[datetime]) -> lis
     """Return git commits made after `since` (i.e., not yet captured in a handoff)."""
     cmd = ["git", "-C", str(project_dir), "log", "--format=%h|%s"]
     if since:
-        # Use 1-minute buffer to avoid edge cases
-        cmd.append(f"--after={since.strftime('%Y-%m-%d %H:%M')}")
+        cmd.append(f"--after={since.strftime('%Y-%m-%d %H:%M:%S')}")
     else:
         cmd += ["-n", "5"]
 

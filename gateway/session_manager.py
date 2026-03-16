@@ -76,6 +76,19 @@ def _start_ttyd(project: str, tmux_name: str) -> int:
         del _ttyd_procs[project]
 
     port = _get_ttyd_port(project)
+
+    # Kill any orphan ttyd on this port (e.g. from previous server run)
+    try:
+        result = subprocess.run(
+            ["fuser", f"{port}/tcp"], capture_output=True, text=True, timeout=3
+        )
+        if result.stdout.strip():
+            subprocess.run(["fuser", "-k", f"{port}/tcp"],
+                           capture_output=True, timeout=3)
+            import time; time.sleep(0.5)
+    except Exception:
+        pass
+
     try:
         proc = subprocess.Popen(
             [

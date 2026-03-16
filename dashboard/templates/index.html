@@ -608,6 +608,22 @@
       border-radius: 6px;
     }
 
+    /* ---- Terminal active project dimming ---- */
+    #board-wrapper.term-dimmed::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.10);
+      pointer-events: none;
+      z-index: 700;
+    }
+    .col.term-active {
+      position: relative;
+      z-index: 701;
+      background: var(--bg);
+      box-shadow: -8px 0 0 var(--bg), 8px 0 0 var(--bg);
+    }
+
     /* ---- Session status indicator ---- */
     .status-dot {
       width: 8px;
@@ -1148,6 +1164,7 @@
     bindCards();
     applyDetailsState();
     updateStatusDots();  // Immediately apply session state to avoid flicker
+    if (typeof updateTermDimming === 'function') updateTermDimming();
     requestAnimationFrame(fixStreamlines);
   }
 
@@ -1551,6 +1568,12 @@
         setTimeout(() => addNote(), 0);
         return false;
       }
+      // Escape — close terminal
+      if (e.code === 'Escape') {
+        e.preventDefault();
+        setTimeout(() => closeTerminal(), 0);
+        return false;
+      }
       return true;
     });
 
@@ -1595,6 +1618,7 @@
     termPanel.classList.add('open');
     document.body.classList.add('term-open');
     updateTermStatus();
+    updateTermDimming();
 
     const entry = getOrCreateTerm(project, ttydPort);
     entry.container.style.display = 'block';
@@ -1689,6 +1713,14 @@
     delete termCache[project];
   }
 
+  function updateTermDimming() {
+    const isOpen = termProject && termPanel.classList.contains('open');
+    boardWrapper.classList.toggle('term-dimmed', !!isOpen);
+    document.querySelectorAll('.col').forEach(col => {
+      col.classList.toggle('term-active', isOpen && col.dataset.project === termProject);
+    });
+  }
+
   function closeTerminal() {
     if (termProject && termCache[termProject]) {
       termCache[termProject].container.style.display = 'none';
@@ -1696,6 +1728,7 @@
     termPanel.classList.remove('open');
     document.body.classList.remove('term-open');
     termProject = null;
+    updateTermDimming();
     requestAnimationFrame(fixStreamlines);
   }
 
