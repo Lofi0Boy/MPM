@@ -82,6 +82,7 @@ def _start_ttyd(project: str, tmux_name: str) -> int:
                 "/usr/bin/ttyd", "--port", str(port),
                 "--writable",
                 "--base-path", f"/ttyd/{project}",
+                "-t", "enableSizeOverlay=false",
                 "tmux", "attach-session", "-t", tmux_name,
             ],
             stdout=subprocess.DEVNULL,
@@ -131,7 +132,8 @@ def create_session(project: str, cli_command: Optional[str] = None) -> SessionIn
 
     # Check if session already exists
     if name in list_tmux_sessions():
-        # Ensure ttyd is running
+        # Ensure mouse mode and ttyd are running
+        _run(["tmux", "set-option", "-t", name, "mouse", "on"])
         _start_ttyd(project, name)
         return get_session_info(project)
 
@@ -143,6 +145,9 @@ def create_session(project: str, cli_command: Optional[str] = None) -> SessionIn
 
     # Increase scrollback buffer
     _run(["tmux", "set-option", "-t", name, "history-limit", "10000"])
+
+    # Enable mouse mode — allows wheel scrolling through scrollback
+    _run(["tmux", "set-option", "-t", name, "mouse", "on"])
 
     # Start CLI if specified
     if cli_command:

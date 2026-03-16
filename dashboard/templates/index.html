@@ -677,7 +677,7 @@
       bottom: 0; left: 0; right: 0;
       height: 40vh;
     }
-    #terminal-panel.open { transform: translateY(0) translateX(0); }
+    #terminal-panel.open { transform: translateY(0); }
 
     /* Right panel mode */
     #terminal-panel.mode-right {
@@ -688,6 +688,7 @@
       border-top: none;
       border-left: 2px solid #333;
     }
+    #terminal-panel.mode-right.open { transform: translateX(0); }
 
     /* Drag handle */
     .term-resize-handle {
@@ -752,14 +753,7 @@
       border: none;
     }
 
-    /* Adjust board when terminal is open — bottom */
-    body.term-open:not(.term-right) #board-wrapper {
-      height: calc(100vh - var(--header-h) - var(--term-h, 40vh));
-    }
-    /* Adjust board when terminal is open — right */
-    body.term-open.term-right #board-wrapper {
-      width: calc(100vw - var(--term-w, 45vw));
-    }
+    /* Terminal overlays the board — no resizing */
 
     /* ---- CLI start dialog (popover) ---- */
     .cli-dialog-overlay {
@@ -1554,19 +1548,35 @@
   }
 
   // ---- Terminal panel resize + mode toggle ----
-  let termMode = 'bottom';  // 'bottom' or 'right'
+  let termMode = localStorage.getItem('termMode') || 'bottom';
 
-  function toggleTermMode() {
-    termMode = termMode === 'bottom' ? 'right' : 'bottom';
+  function applyTermMode() {
+    termPanel.style.width = '';
+    termPanel.style.height = '';
     if (termMode === 'right') {
       termPanel.classList.add('mode-right');
       document.body.classList.add('term-right');
-      document.body.style.setProperty('--term-w', '45vw');
+      const savedW = localStorage.getItem('termW') || '45vw';
+      document.body.style.setProperty('--term-w', savedW);
+      document.body.style.removeProperty('--term-h');
+      if (savedW.endsWith('px')) { termPanel.style.width = savedW; }
     } else {
       termPanel.classList.remove('mode-right');
       document.body.classList.remove('term-right');
-      document.body.style.setProperty('--term-h', '40vh');
+      const savedH = localStorage.getItem('termH') || '40vh';
+      document.body.style.setProperty('--term-h', savedH);
+      document.body.style.removeProperty('--term-w');
+      if (savedH.endsWith('px')) { termPanel.style.height = savedH; }
     }
+  }
+
+  // Apply saved mode on load
+  applyTermMode();
+
+  function toggleTermMode() {
+    termMode = termMode === 'bottom' ? 'right' : 'bottom';
+    localStorage.setItem('termMode', termMode);
+    applyTermMode();
   }
 
   // Drag resize handle
@@ -1574,6 +1584,11 @@
   resizeHandle.addEventListener('mousedown', e => {
     e.preventDefault();
     const isRight = termMode === 'right';
+
+    // Block iframe from stealing mouse events during drag
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;cursor:' + (isRight ? 'ew-resize' : 'ns-resize');
+    document.body.appendChild(overlay);
 
     function onMove(ev) {
       if (isRight) {
@@ -1590,6 +1605,13 @@
     }
 
     function onUp() {
+      overlay.remove();
+      // Save size to localStorage
+      if (isRight) {
+        localStorage.setItem('termW', termPanel.style.width || '45vw');
+      } else {
+        localStorage.setItem('termH', termPanel.style.height || '40vh');
+      }
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
       document.body.style.removeProperty('user-select');
