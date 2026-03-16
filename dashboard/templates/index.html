@@ -1556,6 +1556,9 @@
 
     term.open(container);
 
+    // Block browser context menu inside terminal
+    container.addEventListener('contextmenu', e => e.preventDefault());
+
     // Resize only when container dimensions actually change
     let lastW = 0, lastH = 0;
     const entry = { term, fitAddon, ws: null, container, resizeObs: null };
