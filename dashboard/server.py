@@ -13,6 +13,8 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+import requests as http_requests
+
 sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -300,6 +302,24 @@ def api_add_cli_command():
         config["saved_commands"] = commands
         _save_cli_config(config)
     return jsonify(commands), 201
+
+
+# ---------------------------------------------------------------------------
+# ttyd token proxy (avoids CORS for xterm.js direct connection)
+# ---------------------------------------------------------------------------
+
+@app.route("/api/ttyd-token/<project>")
+def api_ttyd_token(project):
+    sessions = get_all_sessions()
+    session = next((s for s in sessions if s["project"] == project), None)
+    if not session or not session.get("ttyd_port"):
+        return jsonify({"error": "No ttyd session"}), 404
+    port = session["ttyd_port"]
+    try:
+        r = http_requests.get(f"http://127.0.0.1:{port}/ttyd/{project}/token", timeout=3)
+        return jsonify(r.json())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
 
 
 # ---------------------------------------------------------------------------

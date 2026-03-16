@@ -746,11 +746,7 @@
     .term-xterm {
       flex: 1;
       min-height: 0;
-    }
-    .term-xterm iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
+      overflow: hidden;
     }
 
     /* Terminal overlays the board — no resizing */
@@ -908,6 +904,9 @@
   </div>
 </div>
 
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0/lib/addon-fit.min.js"></script>
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script>
   const board = document.getElementById('board');
@@ -1454,29 +1453,23 @@
       }
     }
   });
-  document.addEventListener('keydown', e => {
-    // Text input active — don't intercept
-    const ae = document.activeElement;
-    const isTextInput = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
-
+  function handleGlobalShortcut(e) {
     if (e.ctrlKey && e.code === 'KeyM') {
       e.preventDefault();
       addNote();
       return;
     }
-
     // Shift+Space — cycle through running sessions
     if (e.shiftKey && e.code === 'Space') {
       const runningSessions = sessionsData.filter(s => s.state === 'running' || s.state === 'idle');
       if (runningSessions.length === 0) return;
       e.preventDefault();
-
       const currentIdx = runningSessions.findIndex(s => s.project === termProject);
       const nextIdx = (currentIdx + 1) % runningSessions.length;
-      const next = runningSessions[nextIdx];
-      openTerminal(next.project);
+      openTerminal(runningSessions[nextIdx].project);
     }
-  });
+  }
+  document.addEventListener('keydown', handleGlobalShortcut);
 
   // ======================================================================
   // TERMINAL PANEL + SOCKETIO
@@ -1517,20 +1510,186 @@
     showTerminal(project, session.ttyd_port);
   }
 
+  // ---- xterm.js direct connection (cached per project) ----
+  const termCache = {}; // project -> { term, fitAddon, ws, container, resizeObs }
+
+  function getOrCreateTerm(project, ttydPort) {
+    if (termCache[project]) return termCache[project];
+
+    const container = document.createElement('div');
+    container.style.cssText = 'width:100%;height:100%;display:none;';
+    termXtermEl.appendChild(container);
+
+    const term = new Terminal({
+      cursorBlink: true,
+      fontSize: 14,
+      fontFamily: "'DejaVu Sans Mono', 'Courier New', monospace",
+      lineHeight: 1.0,
+      theme: { background: '#1e1e1e', foreground: '#cccccc' },
+      scrollback: 5000,
+    });
+    const fitAddon = new FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+
+    // Intercept shortcuts inside terminal
+    term.attachCustomKeyEventHandler(e => {
+      if (e.type !== 'keydown') return true;
+      if (e.shiftKey && e.code === 'Space') {
+        e.preventDefault();
+        const curProject = termProject;
+        setTimeout(() => {
+          const runningSessions = sessionsData.filter(s => s.state === 'running' || s.state === 'idle');
+          if (runningSessions.length === 0) return;
+          const currentIdx = runningSessions.findIndex(s => s.project === curProject);
+          const nextIdx = (currentIdx + 1) % runningSessions.length;
+          openTerminal(runningSessions[nextIdx].project);
+        }, 0);
+        return false;
+      }
+      if (e.ctrlKey && e.code === 'KeyM') {
+        e.preventDefault();
+        setTimeout(() => addNote(), 0);
+        return false;
+      }
+      return true;
+    });
+
+    term.open(container);
+
+    // Resize only when container dimensions actually change
+    let lastW = 0, lastH = 0;
+    const entry = { term, fitAddon, ws: null, container, resizeObs: null };
+
+    const resizeObs = new ResizeObserver(entries => {
+      const r = entries[0].contentRect;
+      const w = Math.round(r.width), h = Math.round(r.height);
+      if (w === lastW && h === lastH || w === 0 || h === 0) return;
+      lastW = w; lastH = h;
+      fitAddon.fit();
+      if (entry.ws && entry.ws.readyState === WebSocket.OPEN) {
+        entry.ws.send(new TextEncoder().encode('1' + JSON.stringify({ columns: term.cols, rows: term.rows })));
+      }
+    });
+    resizeObs.observe(container);
+    entry.resizeObs = resizeObs;
+
+    termCache[project] = entry;
+
+    // Connect WebSocket
+    connectTtydWs(entry, ttydPort, project);
+
+    return entry;
+  }
+
   function showTerminal(project, ttydPort) {
+    // Hide current terminal if any
+    if (termProject && termCache[termProject]) {
+      termCache[termProject].container.style.display = 'none';
+    }
+
     termProject = project;
     termProjectName.textContent = project;
     termPanel.classList.add('open');
     document.body.classList.add('term-open');
     updateTermStatus();
 
-    // Load ttyd in iframe
+    const entry = getOrCreateTerm(project, ttydPort);
+    entry.container.style.display = 'block';
+
+    // Double rAF ensures layout is fully resolved before fitting
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      entry.fitAddon.fit();
+      entry.term.focus();
+      // Sync resize to ttyd
+      if (entry.ws && entry.ws.readyState === WebSocket.OPEN) {
+        entry.ws.send(new TextEncoder().encode('1' + JSON.stringify({ columns: entry.term.cols, rows: entry.term.rows })));
+      }
+    }));
+  }
+
+  function connectTtydWs(entry, ttydPort, project) {
     const host = window.location.hostname;
-    termXtermEl.innerHTML = `<iframe src="http://${host}:${ttydPort}/ttyd/${project}/" allow="clipboard-read; clipboard-write"></iframe>`;
+    const wsUrl = `ws://${host}:${ttydPort}/ttyd/${project}/ws`;
+
+    fetch(`/api/ttyd-token/${encodeURIComponent(project)}`)
+      .then(r => r.json())
+      .then(tokenData => {
+        const ws = new WebSocket(wsUrl, ['tty']);
+        ws.binaryType = 'arraybuffer';
+
+        ws.onopen = () => {
+          ws.send(new TextEncoder().encode(JSON.stringify({
+            AuthToken: tokenData.token || '',
+            columns: entry.term.cols,
+            rows: entry.term.rows,
+          })));
+        };
+
+        // Buffer output, flush per animation frame
+        let outBuf = [];
+        let flushPending = false;
+        let paused = false;
+
+        function flush() {
+          if (!outBuf.length) { flushPending = false; return; }
+          const total = outBuf.reduce((n, b) => n + b.length, 0);
+          const merged = new Uint8Array(total);
+          let off = 0;
+          for (const c of outBuf) { merged.set(c, off); off += c.length; }
+          outBuf = [];
+          flushPending = false;
+          entry.term.write(merged, () => {
+            if (paused && ws.readyState === WebSocket.OPEN) {
+              paused = false;
+              ws.send(new Uint8Array([0x33])); // RESUME
+            }
+          });
+        }
+
+        ws.onmessage = ev => {
+          const data = new Uint8Array(ev.data);
+          if (String.fromCharCode(data[0]) === '0') {
+            outBuf.push(data.slice(1));
+            if (!paused && outBuf.reduce((n, b) => n + b.length, 0) > 16384 && ws.readyState === WebSocket.OPEN) {
+              paused = true;
+              ws.send(new Uint8Array([0x32])); // PAUSE
+            }
+            if (!flushPending) { flushPending = true; requestAnimationFrame(flush); }
+          }
+        };
+
+        ws.onclose = () => entry.term.write('\r\n\x1b[90m[connection closed]\x1b[0m\r\n');
+        ws.onerror = () => entry.term.write('\r\n\x1b[31m[connection error]\x1b[0m\r\n');
+
+        entry.term.onData(data => {
+          if (ws.readyState === WebSocket.OPEN) {
+            const enc = new TextEncoder().encode(data);
+            const msg = new Uint8Array(enc.length + 1);
+            msg[0] = 0x30; // INPUT
+            msg.set(enc, 1);
+            ws.send(msg);
+          }
+        });
+
+        entry.ws = ws;
+      })
+      .catch(() => entry.term.write('\x1b[31m[failed to connect]\x1b[0m\r\n'));
+  }
+
+  function disposeCachedTerm(project) {
+    const entry = termCache[project];
+    if (!entry) return;
+    if (entry.ws) entry.ws.close();
+    if (entry.resizeObs) entry.resizeObs.disconnect();
+    entry.term.dispose();
+    entry.container.remove();
+    delete termCache[project];
   }
 
   function closeTerminal() {
-    termXtermEl.innerHTML = '';
+    if (termProject && termCache[termProject]) {
+      termCache[termProject].container.style.display = 'none';
+    }
     termPanel.classList.remove('open');
     document.body.classList.remove('term-open');
     termProject = null;
@@ -1540,10 +1699,10 @@
   async function killSession(project) {
     try {
       await fetch(`/api/sessions/${encodeURIComponent(project)}`, { method: 'DELETE' });
-      // Close terminal panel if this project is open
       if (termProject === project) {
         closeTerminal();
       }
+      disposeCachedTerm(project);
       loadSessions();
     } catch(e) { /* silent */ }
   }
