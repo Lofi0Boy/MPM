@@ -883,6 +883,7 @@
     <div class="term-header-actions">
       <button class="term-hdr-btn" id="term-start-btn" onclick="startCli()">Start CLI</button>
       <button class="term-hdr-btn" id="term-kill-btn" onclick="killCurrentSession()">Kill CLI</button>
+      <button class="term-hdr-btn" onclick="popOutTerminal()" title="Open in new window">&#8599;</button>
       <button class="term-hdr-btn" onclick="toggleTermMode()" title="Toggle bottom/right">&#8596;</button>
       <button class="term-hdr-btn" onclick="closeTerminal()">Close</button>
     </div>
@@ -1503,7 +1504,22 @@
   const termStatusText = document.getElementById('term-status-text');
   const termStartBtn = document.getElementById('term-start-btn');
 
+  // ---- Pop-out window tracking ----
+  const popOutWindows = {}; // project -> window reference
+
+  function isPopOut(project) {
+    return popOutWindows[project] && !popOutWindows[project].closed;
+  }
+
   function openTerminal(project, anchorEl) {
+    // If pop-out window exists, focus it
+    if (isPopOut(project)) {
+      popOutWindows[project].focus();
+      termProject = project;
+      updateTermDimming();
+      return;
+    }
+
     const session = sessionsData.find(s => s.project === project);
     if (!session || session.state === 'off') {
       openCliDialog(project, anchorEl);
@@ -1512,15 +1528,27 @@
 
     // Need ttyd port
     if (!session.ttyd_port) {
-      // Start ttyd by re-creating session (idempotent)
       fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ project }),
       }).then(() => loadSessions().then(() => {
         const s = sessionsData.find(x => x.project === project);
-        if (s && s.ttyd_port) showTerminal(project, s.ttyd_port);
+        if (s && s.ttyd_port) {
+          // Check popup preference
+          if (localStorage.getItem('termPopOut_' + project) === 'true') {
+            openPopOut(project);
+          } else {
+            showTerminal(project, s.ttyd_port);
+          }
+        }
       }));
+      return;
+    }
+
+    // Check popup preference
+    if (localStorage.getItem('termPopOut_' + project) === 'true') {
+      openPopOut(project);
       return;
     }
 
@@ -1720,6 +1748,66 @@
       col.classList.toggle('term-active', isOpen && col.dataset.project === termProject);
     });
   }
+
+  function openPopOut(project) {
+    // Use saved geometry or defaults
+    const geoStr = localStorage.getItem('termPopGeo_' + project);
+    let w = Math.round(screen.width * 0.7);
+    let h = Math.round(screen.height * 0.7);
+    let left = Math.round((screen.width - w) / 2);
+    let top = Math.round((screen.height - h) / 2);
+    if (geoStr) {
+      try {
+        const geo = JSON.parse(geoStr);
+        w = geo.w || w; h = geo.h || h; left = geo.x || left; top = geo.y || top;
+      } catch(e) {}
+    }
+    const win = window.open(
+      `/terminal/${encodeURIComponent(project)}`,
+      `ttyd-${project}`,
+      `width=${w},height=${h},left=${left},top=${top}`
+    );
+    if (win) {
+      popOutWindows[project] = win;
+      disposeCachedTerm(project);
+    }
+  }
+
+  function popOutTerminal() {
+    if (!termProject) return;
+    const project = termProject;
+    closeTerminal();
+    openPopOut(project);
+  }
+
+  // Listen for messages from popup windows
+  window.addEventListener('message', e => {
+    if (!e.data || !e.data.type) return;
+    if (e.data.type === 'mpm-popup-closed') {
+      delete popOutWindows[e.data.project];
+    }
+    if (e.data.type === 'mpm-dock') {
+      delete popOutWindows[e.data.project];
+      // Open in panel
+      const session = sessionsData.find(s => s.project === e.data.project);
+      if (session && session.ttyd_port) {
+        showTerminal(e.data.project, session.ttyd_port);
+      }
+    }
+    if (e.data.type === 'mpm-cycle-session') {
+      const runningSessions = sessionsData.filter(s => s.state === 'running' || s.state === 'idle');
+      if (runningSessions.length === 0) return;
+      const currentIdx = runningSessions.findIndex(s => s.project === e.data.from);
+      const nextIdx = (currentIdx + 1) % runningSessions.length;
+      openTerminal(runningSessions[nextIdx].project);
+    }
+    if (e.data.type === 'mpm-start-cli') {
+      const session = sessionsData.find(s => s.project === e.data.project);
+      if (session) {
+        openCliDialog(e.data.project);
+      }
+    }
+  });
 
   function closeTerminal() {
     if (termProject && termCache[termProject]) {

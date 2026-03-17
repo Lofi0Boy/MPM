@@ -2,106 +2,234 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{{ project }} — Terminal</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.min.css" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
       background: #1e1e1e;
+      color: #ccc;
       height: 100vh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
-    #bar {
+    .term-header {
       flex-shrink: 0;
-      height: 32px;
+      height: 36px;
       background: #2d2d2d;
       border-bottom: 1px solid #444;
       display: flex;
       align-items: center;
       padding: 0 12px;
-      gap: 8px;
+      gap: 10px;
     }
-    #bar .name {
-      font-family: -apple-system, sans-serif;
-      font-size: 12px;
-      font-weight: 600;
-      color: #ccc;
+    .term-project-name { font-size: 12px; font-weight: 600; color: #ccc; }
+    .term-status { font-size: 10px; color: #888; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+    .status-dot.off { background: #555; }
+    .status-dot.idle { background: #f0ad4e; }
+    .status-dot.running { background: #5cb85c; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .term-header-actions { margin-left: auto; display: flex; gap: 6px; }
+    .term-hdr-btn {
+      font-size: 11px; color: #888; background: none;
+      border: 1px solid #555; border-radius: 3px; padding: 2px 8px; cursor: pointer;
     }
-    #bar .status {
-      font-family: -apple-system, sans-serif;
-      font-size: 10px;
-      color: #888;
-    }
-    #terminal {
-      flex: 1;
-    }
+    .term-hdr-btn:hover { color: #ddd; border-color: #888; }
+    #term-xterm { flex: 1; min-height: 0; overflow: hidden; }
   </style>
 </head>
 <body>
-  <div id="bar">
-    <span class="name">{{ project }}</span>
-    <span class="status" id="status">Connecting...</span>
+
+<div class="term-header">
+  <span class="status-dot off" id="term-status-dot"></span>
+  <span class="term-project-name">{{ project }}</span>
+  <span class="term-status" id="term-status-text"></span>
+  <div class="term-header-actions">
+    <button class="term-hdr-btn" id="term-start-btn" onclick="startCli()">Start CLI</button>
+    <button class="term-hdr-btn" id="term-kill-btn" onclick="killSess()">Kill CLI</button>
+    <button class="term-hdr-btn" onclick="dockToPanel()" title="Dock to panel">&#8601;</button>
+    <button class="term-hdr-btn" onclick="window.close()">Close</button>
   </div>
-  <div id="terminal"></div>
+</div>
+<div id="term-xterm"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.min.js"></script>
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <script>
-    const project = '{{ project }}';
-    const statusEl = document.getElementById('status');
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0/lib/addon-fit.min.js"></script>
+<script>
+  const PROJECT = '{{ project }}';
+  const termEl = document.getElementById('term-xterm');
+  let ws = null;
 
-    const term = new Terminal({
-      cursorBlink: true,
-      fontSize: 13,
-      fontFamily: "'Menlo', 'Monaco', 'Consolas', monospace",
-      theme: {
-        background: '#1e1e1e',
-        foreground: '#d4d4d4',
-        cursor: '#d4d4d4',
-        selectionBackground: '#444',
-      },
-    });
+  // ---- Save popup geometry periodically ----
+  function saveGeometry() {
+    const geo = { x: screenX, y: screenY, w: outerWidth, h: outerHeight };
+    localStorage.setItem('termPopGeo_' + PROJECT, JSON.stringify(geo));
+  }
+  window.addEventListener('resize', saveGeometry);
+  setInterval(saveGeometry, 2000);
 
-    const fitAddon = new FitAddon.FitAddon();
-    term.loadAddon(fitAddon);
-    term.loadAddon(new WebLinksAddon.WebLinksAddon());
-    term.open(document.getElementById('terminal'));
-    fitAddon.fit();
+  // Mark project as popup mode
+  localStorage.setItem('termPopOut_' + PROJECT, 'true');
 
-    window.addEventListener('resize', () => fitAddon.fit());
+  // ---- xterm.js ----
+  const term = new Terminal({
+    cursorBlink: true,
+    fontSize: 14,
+    fontFamily: "'DejaVu Sans Mono', 'Courier New', monospace",
+    lineHeight: 1.0,
+    theme: { background: '#1e1e1e', foreground: '#cccccc' },
+    scrollback: 5000,
+  });
+  const fitAddon = new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
 
-    const socket = io();
+  termEl.addEventListener('contextmenu', e => e.preventDefault());
 
-    socket.on('connect', () => {
-      statusEl.textContent = 'Attaching...';
-      socket.emit('pty_attach', { project });
-    });
-
-    socket.on('pty_ready', data => {
-      if (data.ok) {
-        statusEl.textContent = '';
-        // Send initial size
-        socket.emit('pty_resize', { rows: term.rows, cols: term.cols });
-      } else {
-        statusEl.textContent = 'No tmux session found';
+  // Shift+Space — cycle sessions via opener
+  term.attachCustomKeyEventHandler(e => {
+    if (e.type !== 'keydown') return true;
+    if (e.shiftKey && e.code === 'Space') {
+      e.preventDefault();
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({ type: 'mpm-cycle-session', from: PROJECT }, '*');
       }
-    });
+      return false;
+    }
+    return true;
+  });
 
-    socket.on('pty_output', data => {
-      term.write(data.data);
-    });
+  term.open(termEl);
+  requestAnimationFrame(() => { fitAddon.fit(); term.focus(); });
 
-    term.onData(data => {
-      socket.emit('pty_input', { data });
-    });
+  let lastW = 0, lastH = 0;
+  new ResizeObserver(entries => {
+    const r = entries[0].contentRect;
+    const w = Math.round(r.width), h = Math.round(r.height);
+    if (w === lastW && h === lastH || w === 0 || h === 0) return;
+    lastW = w; lastH = h;
+    fitAddon.fit();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(new TextEncoder().encode('1' + JSON.stringify({ columns: term.cols, rows: term.rows })));
+    }
+  }).observe(termEl);
 
-    term.onResize(({ rows, cols }) => {
-      socket.emit('pty_resize', { rows, cols });
-    });
-  </script>
+  // ---- Connect to ttyd ----
+  async function connect() {
+    try {
+      const tokenData = await fetch('/api/ttyd-token/' + encodeURIComponent(PROJECT)).then(r => r.json());
+      if (tokenData.error) { term.write('\x1b[31m[' + tokenData.error + ']\x1b[0m\r\n'); return; }
+
+      const sessions = await fetch('/api/sessions').then(r => r.json());
+      const session = sessions.find(s => s.project === PROJECT);
+      if (!session || !session.ttyd_port) { term.write('\x1b[31m[no ttyd session]\x1b[0m\r\n'); return; }
+
+      const host = window.location.hostname;
+      ws = new WebSocket('ws://' + host + ':' + session.ttyd_port + '/ttyd/' + PROJECT + '/ws', ['tty']);
+      ws.binaryType = 'arraybuffer';
+
+      ws.onopen = () => {
+        ws.send(new TextEncoder().encode(JSON.stringify({
+          AuthToken: tokenData.token || '', columns: term.cols, rows: term.rows,
+        })));
+      };
+
+      let outBuf = [], flushPending = false, paused = false;
+      function flush() {
+        if (!outBuf.length) { flushPending = false; return; }
+        const total = outBuf.reduce((n, b) => n + b.length, 0);
+        const merged = new Uint8Array(total);
+        let off = 0;
+        for (const c of outBuf) { merged.set(c, off); off += c.length; }
+        outBuf = []; flushPending = false;
+        term.write(merged, () => {
+          if (paused && ws.readyState === WebSocket.OPEN) { paused = false; ws.send(new Uint8Array([0x33])); }
+        });
+      }
+
+      ws.onmessage = ev => {
+        const data = new Uint8Array(ev.data);
+        if (String.fromCharCode(data[0]) === '0') {
+          outBuf.push(data.slice(1));
+          if (!paused && outBuf.reduce((n, b) => n + b.length, 0) > 16384 && ws.readyState === WebSocket.OPEN) {
+            paused = true; ws.send(new Uint8Array([0x32]));
+          }
+          if (!flushPending) { flushPending = true; requestAnimationFrame(flush); }
+        }
+      };
+
+      ws.onclose = () => term.write('\r\n\x1b[90m[connection closed]\x1b[0m\r\n');
+      ws.onerror = () => term.write('\r\n\x1b[31m[connection error]\x1b[0m\r\n');
+
+      term.onData(data => {
+        if (ws.readyState === WebSocket.OPEN) {
+          const enc = new TextEncoder().encode(data);
+          const msg = new Uint8Array(enc.length + 1);
+          msg[0] = 0x30; msg.set(enc, 1);
+          ws.send(msg);
+        }
+      });
+
+      updateStatus(session);
+    } catch (e) {
+      term.write('\x1b[31m[' + e.message + ']\x1b[0m\r\n');
+    }
+  }
+
+  // ---- Status ----
+  function updateStatus(session) {
+    const state = session ? session.state : 'off';
+    document.getElementById('term-status-dot').className = 'status-dot ' + state;
+    const labels = { off: 'No session', idle: 'Idle', running: '' };
+    document.getElementById('term-status-text').textContent =
+      state === 'running' && session.cli_name ? session.cli_name + ' running' : (labels[state] || '');
+    document.getElementById('term-start-btn').style.display = state === 'off' ? '' : 'none';
+    document.getElementById('term-kill-btn').style.display = state === 'off' ? 'none' : '';
+  }
+
+  async function pollStatus() {
+    try {
+      const sessions = await fetch('/api/sessions').then(r => r.json());
+      updateStatus(sessions.find(s => s.project === PROJECT));
+    } catch (e) {}
+  }
+  setInterval(pollStatus, 5000);
+
+  // ---- Actions ----
+  function startCli() {
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage({ type: 'mpm-start-cli', project: PROJECT }, '*');
+    }
+  }
+
+  async function killSess() {
+    try {
+      await fetch('/api/sessions/' + encodeURIComponent(PROJECT), { method: 'DELETE' });
+      pollStatus();
+    } catch (e) {}
+  }
+
+  function dockToPanel() {
+    localStorage.removeItem('termPopOut_' + PROJECT);
+    localStorage.removeItem('termPopGeo_' + PROJECT);
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage({ type: 'mpm-dock', project: PROJECT }, '*');
+    }
+    window.close();
+  }
+
+  // ---- Cleanup ----
+  window.addEventListener('beforeunload', () => {
+    saveGeometry();
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage({ type: 'mpm-popup-closed', project: PROJECT }, '*');
+    }
+  });
+
+  connect();
+</script>
 </body>
 </html>

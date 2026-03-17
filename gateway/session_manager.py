@@ -260,6 +260,23 @@ def get_session_info(project: str) -> SessionInfo:
     )
 
 
+def cleanup_all() -> None:
+    """Kill all MPM-managed ttyd processes and tmux sessions."""
+    config = _load_config()
+    prefix = config.get("tmux_prefix", "mpm")
+
+    # Stop all ttyd processes
+    for project in list(_ttyd_procs.keys()):
+        _stop_ttyd(project)
+
+    # Kill all mpm-prefixed tmux sessions
+    for name in list_tmux_sessions():
+        if name.startswith(f"{prefix}-"):
+            _run(["tmux", "kill-session", "-t", name])
+
+    print("MPM cleanup: all sessions terminated")
+
+
 def get_all_sessions() -> list[dict]:
     config = _load_config()
     workspace = config.get("workspace", "")

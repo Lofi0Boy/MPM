@@ -26,6 +26,7 @@ from gateway.file_watcher import start_file_watcher
 from gateway.multiplexer import start_polling, subscribe, unsubscribe
 from gateway.session_manager import (
     capture_pane,
+    cleanup_all,
     create_session,
     get_all_sessions,
     kill_session,
@@ -53,6 +54,11 @@ def get_projects_cached() -> list[dict]:
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/terminal/<project>")
+def terminal_page(project):
+    return render_template("terminal.html", project=project)
 
 
 @app.route("/api/projects")
@@ -378,8 +384,22 @@ def api_open_terminal(project):
 
 
 if __name__ == "__main__":
+    import atexit
+    import signal as _signal
+
     port = 5100
     print(f"MPM Dashboard → http://localhost:{port}")
+
+    atexit.register(cleanup_all)
+
+    def _shutdown(signum, frame):
+        print(f"\nMPM shutting down (signal {signum})…")
+        cleanup_all()
+        raise SystemExit(0)
+
+    _signal.signal(_signal.SIGTERM, _shutdown)
+    _signal.signal(_signal.SIGINT, _shutdown)
+
     start_polling(socketio)
     start_file_watcher(socketio)
     socketio.run(app, host="0.0.0.0", port=port, debug=False, allow_unsafe_werkzeug=True)
