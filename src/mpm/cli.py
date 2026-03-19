@@ -36,11 +36,20 @@ def _templates_dir() -> Path:
     dev_path = Path(__file__).parent.parent.parent / "templates"
     if dev_path.exists():
         return dev_path
-    # Installed: sys.prefix/share/mpm/templates
-    installed_path = Path(sys.prefix) / "share" / "mpm" / "templates"
-    if installed_path.exists():
-        return installed_path
-    raise FileNotFoundError("MPM templates not found")
+    # Installed via pip/uv: look relative to the venv or tool directory
+    # hatch shared-data puts files in {prefix}/share/mpm/templates
+    for base in [Path(sys.prefix), Path(sys.exec_prefix)]:
+        installed_path = base / "share" / "mpm" / "templates"
+        if installed_path.exists():
+            return installed_path
+    # uv tool install: {tool_dir}/share/mpm/templates
+    cli_path = Path(__file__).resolve()
+    # Walk up from site-packages to find share/
+    for parent in cli_path.parents:
+        candidate = parent / "share" / "mpm" / "templates"
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError("MPM templates not found. Try reinstalling: uv tool install --force ...")
 
 
 @click.group()
@@ -182,6 +191,10 @@ def init(path):
             continue
 
         shutil.copy2(src_file, dest)
+
+    # Create required empty directories
+    for d in [".mpm/data/current", ".mpm/data/past", ".mpm/docs"]:
+        (project_dir / d).mkdir(parents=True, exist_ok=True)
 
     # Make scripts executable
     scripts_dir = project_dir / ".mpm" / "scripts"
