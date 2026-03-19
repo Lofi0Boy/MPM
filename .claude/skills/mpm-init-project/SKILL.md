@@ -1,7 +1,6 @@
 ---
 name: mpm-init-project
 description: Initialize MPM in the current project — scan, write PROJECT.md, and set up first tasks.
-disable-model-invocation: true
 ---
 
 # Initialize MPM Project
