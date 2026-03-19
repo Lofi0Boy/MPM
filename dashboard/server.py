@@ -9,8 +9,9 @@ import json
 import sys
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import requests as http_requests
 
@@ -40,6 +41,15 @@ from projects import (
 )
 
 IDEAS_PATH = Path(__file__).parent.parent / "data" / "ideas.json"
+
+
+def _get_tz():
+    """Get timezone from config, default to UTC."""
+    try:
+        config = load_projects_config()
+        return ZoneInfo(config.get("timezone", "UTC"))
+    except Exception:
+        return timezone.utc
 
 app = Flask(__name__, template_folder="templates")
 app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -238,11 +248,6 @@ def api_promote_idea(idea_id):
 
     # Scaffold
     project_dir.mkdir()
-    (project_dir / "docs").mkdir()
-    (project_dir / "docs" / "handoff").mkdir()
-
-    readme = f"# {idea['title']}\n\n{idea['description']}\n"
-    (project_dir / "README.md").write_text(readme, encoding="utf-8")
 
     # Create .mpm structure
     mpm_data = project_dir / ".mpm" / "data"
@@ -314,7 +319,7 @@ def api_v2_add_future(project_name):
         "result": None,
         "memo": None,
         "status": "queued",
-        "created": datetime.now(timezone.utc).strftime("%y%m%d%H%M"),
+        "created": datetime.now(_get_tz()).strftime("%y%m%d%H%M"),
         "session_id": None,
         "parent_id": data.get("parent_id"),
     }

@@ -71,13 +71,13 @@ Fill `goal`, `approach`, `verification`, set `status` to `active`, set `session_
 **verification = HOW** you will check each goal item.
 
 Available verification methods (prefer self-verification when possible):
-- **Claude in Chrome** (`/chrome`): interact with live pages — click, type, scroll, read console logs. Best for UI interaction flows, form validation, visual checks with real browser context
-- **Headless Chrome screenshot**: `google-chrome --headless --screenshot=... --virtual-time-budget=5000 URL` — for quick static visual checks
 - **curl + parse**: `curl -s URL | grep/jq ...` — for API responses, served HTML content
 - **Run tests**: `pytest`, `npm test`, etc.
 - **Script execution**: run the modified code and check output
 - **File inspection**: verify generated/modified files contain expected content
-- **Ask user**: ONLY when the above methods genuinely cannot verify (e.g., subjective design quality, interaction flow requiring real browser input)
+- **Headless Chrome screenshot**: `google-chrome --headless --screenshot=...` — for quick static visual checks
+- **Browser automation** (e.g. Claude in Chrome): interact with live pages if available
+- **Ask user**: ONLY when the above methods genuinely cannot verify (e.g., subjective design quality)
 
 Example — title: "Dashboard live refresh"
 - goal: "JSON changes in future/current/past reflected on dashboard within 2s without manual refresh"

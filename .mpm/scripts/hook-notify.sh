@@ -13,7 +13,10 @@ SESSION_ID=$(echo "$INPUT" | jq -r '.session_id' 2>>/tmp/mpm-hook.log)
 
 echo "$(date) | project=$PROJECT session=$SESSION_ID" >> /tmp/mpm-hook.log
 
-curl -s -X POST http://localhost:5100/api/hook/agent-status \
+# Dashboard port: MPM_PORT env var, or default 5100
+PORT="${MPM_PORT:-5100}"
+
+curl -s -X POST "http://localhost:${PORT}/api/hook/agent-status" \
   -H 'Content-Type: application/json' \
   -d "{\"project\": \"$PROJECT\", \"session_id\": \"$SESSION_ID\", \"status\": \"$STATUS\"}" \
   2>>/tmp/mpm-hook.log || true

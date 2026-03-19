@@ -2,18 +2,22 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "__mpm__",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
             "command": ".mpm/scripts/hook-notify.sh active"
+          },
+          {
+            "type": "command",
+            "command": ".mpm/scripts/hook-init-check.sh"
           }
         ]
       }
     ],
     "UserPromptSubmit": [
       {
-        "matcher": "__mpm__",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
@@ -26,9 +30,20 @@
         ]
       }
     ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".mpm/scripts/hook-pretool-task-check.sh"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
-        "matcher": "__mpm__",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",

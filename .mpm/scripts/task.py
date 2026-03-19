@@ -16,13 +16,21 @@ import sys
 import uuid
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 FUTURE_PATH = DATA_DIR / "future.json"
 CURRENT_DIR = DATA_DIR / "current"
 PAST_DIR = DATA_DIR / "past"
+CONFIG_PATH = Path(__file__).parents[2] / "data" / "config.json"
 
-KST = timezone(timedelta(hours=9))
+
+def _get_tz():
+    try:
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        return ZoneInfo(config.get("timezone", "UTC"))
+    except Exception:
+        return timezone.utc
 
 
 def _load_json(path, default=None):
@@ -80,7 +88,7 @@ def cmd_complete(session_id, status, memo=None, result=None):
         task["memo"] = memo
 
     # Append to today's past file
-    date_str = datetime.now(KST).strftime("%y%m%d")
+    date_str = datetime.now(_get_tz()).strftime("%y%m%d")
     past_path = PAST_DIR / f"{date_str}.json"
     past = _load_json(past_path, [])
     past.append(task)
@@ -102,7 +110,7 @@ def cmd_complete(session_id, status, memo=None, result=None):
             "result": None,
             "memo": None,
             "status": "queued",
-            "created": datetime.now(KST).strftime("%y%m%d%H%M"),
+            "created": datetime.now(_get_tz()).strftime("%y%m%d%H%M"),
             "session_id": None,
             "parent_id": task["id"],
         }
@@ -122,7 +130,7 @@ def cmd_create(session_id, title, prompt):
         if not existing.get("result"):
             existing["result"] = "(auto-completed: replaced by new task)"
         # Move to past
-        date_str = datetime.now(KST).strftime("%y%m%d")
+        date_str = datetime.now(_get_tz()).strftime("%y%m%d")
         past_path = PAST_DIR / f"{date_str}.json"
         past = _load_json(past_path, [])
         past.append(existing)
@@ -140,7 +148,7 @@ def cmd_create(session_id, title, prompt):
         "result": None,
         "memo": None,
         "status": "active",
-        "created": datetime.now(KST).strftime("%y%m%d%H%M"),
+        "created": datetime.now(_get_tz()).strftime("%y%m%d%H%M"),
         "session_id": session_id,
         "parent_id": None,
     }
@@ -163,7 +171,7 @@ def cmd_add(title, prompt):
         "result": None,
         "memo": None,
         "status": "queued",
-        "created": datetime.now(KST).strftime("%y%m%d%H%M"),
+        "created": datetime.now(_get_tz()).strftime("%y%m%d%H%M"),
         "session_id": None,
         "parent_id": None,
     }

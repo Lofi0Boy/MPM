@@ -32,6 +32,19 @@
       overflow: hidden;
     }
 
+    /* ---- Base components ---- */
+    .btn {
+      font-size: 11px;
+      color: var(--secondary);
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 10px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .btn:hover { color: var(--text); border-color: #aaa; }
+
     /* ---- Top bar ---- */
     header {
       flex-shrink: 0;
@@ -50,16 +63,7 @@
       text-transform: uppercase;
     }
     #status { font-size: 11px; color: var(--muted); margin-left: auto; }
-    .top-btn {
-      font-size: 11px;
-      color: var(--secondary);
-      background: none;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 3px 10px;
-      cursor: pointer;
-    }
-    .top-btn:hover { color: var(--text); border-color: #aaa; }
+    /* .top-btn inherits from .btn */
 
     /* ---- Shortcut panel ---- */
     .shortcut-panel {
@@ -288,17 +292,8 @@
       margin-right: 4px;
     }
 
-    .tab-btn {
-      font-size: 11px;
-      color: var(--secondary);
-      background: none;
-      border: 1px solid transparent;
-      border-radius: 4px;
-      padding: 3px 10px;
-      cursor: pointer;
-      transition: color 0.15s, border-color 0.15s, background 0.15s;
-    }
-    .tab-btn:hover { color: var(--text); border-color: var(--border); }
+    .tab-btn { border-color: transparent; }
+    .tab-btn:hover { border-color: var(--border); }
     .tab-btn.active {
       color: var(--text);
       background: var(--bg);
@@ -357,17 +352,8 @@
       border-bottom: 1px solid var(--border);
       background: var(--bg);
     }
-    .modal-toolbar-btn {
-      font-size: 11px;
-      color: var(--secondary);
-      background: none;
-      border: 1px solid transparent;
-      border-radius: 4px;
-      padding: 3px 10px;
-      cursor: pointer;
-      transition: color 0.15s, border-color 0.15s, background 0.15s;
-    }
-    .modal-toolbar-btn:hover { color: var(--text); border-color: var(--border); }
+    .modal-toolbar-btn { border-color: transparent; }
+    .modal-toolbar-btn:hover { border-color: var(--border); }
     .modal-toolbar-btn.active {
       color: var(--text);
       background: var(--surface);
@@ -1155,9 +1141,9 @@
 
 <header>
   <h1>MPM</h1>
-  <button class="top-btn" onclick="addNote()">+ Note</button>
-  <button class="top-btn" onclick="forceRefresh()">Refresh</button>
-  <button class="top-btn" onclick="toggleShortcutPanel()">Shortcuts</button>
+  <button class="btn" onclick="addNote()">+ Note</button>
+  <button class="btn" onclick="forceRefresh()">Refresh</button>
+  <button class="btn" onclick="toggleShortcutPanel()">Shortcuts</button>
   <span id="status">Loading...</span>
 </header>
 
@@ -1214,9 +1200,9 @@
       <button class="modal-close" onclick="closeDocs()">&#10005;</button>
     </div>
     <div class="modal-toolbar" id="modal-toolbar">
-      <button class="modal-toolbar-btn active" id="btn-read" onclick="setDocMode('read')">Read</button>
-      <button class="modal-toolbar-btn" id="btn-edit" onclick="setDocMode('edit')">Edit</button>
-      <button class="modal-toolbar-btn save-btn" id="btn-save" onclick="saveDoc()" disabled>Save</button>
+      <button class="btn modal-toolbar-btn active" id="btn-read" onclick="setDocMode('read')">Read</button>
+      <button class="btn modal-toolbar-btn" id="btn-edit" onclick="setDocMode('edit')">Edit</button>
+      <button class="btn modal-toolbar-btn save-btn" id="btn-save" onclick="saveDoc()" disabled>Save</button>
     </div>
     <div class="modal-body">
       <div id="modal-content" class="md-content"></div>
@@ -1243,6 +1229,17 @@
   // ---- Helpers ----
   function esc(s) {
     return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  async function api(path, opts = {}) {
+    const { method = 'GET', body } = opts;
+    const init = { method };
+    if (body !== undefined) {
+      init.headers = { 'Content-Type': 'application/json' };
+      init.body = JSON.stringify(body);
+    }
+    const res = await fetch(path, init);
+    return res.json();
   }
 
   // ---- Streamlines ----
@@ -1274,8 +1271,7 @@
 
     // Fetch file list
     try {
-      const res = await fetch(`/api/docs/${encodeURIComponent(projectName)}`);
-      const data = await res.json();
+      const data = await api(`/api/docs/${encodeURIComponent(projectName)}`);
       modalFiles = data.files || [];
     } catch(e) {
       modalFiles = [];
@@ -1319,7 +1315,7 @@
       const fileName = parts.pop();
       const dir = parts.length ? parts.join('/') + '/' : '';
       const dirHtml = dir ? `<span class="tab-dir">${esc(dir)}</span>` : '';
-      return `<button class="tab-btn${f === modalTab ? ' active' : ''}"
+      return `<button class="btn tab-btn${f === modalTab ? ' active' : ''}"
         onclick="switchTab('${esc(f)}')" title="${esc(f)}">${dirHtml}${esc(fileName)}</button>`;
     }).join('');
   }
@@ -1366,12 +1362,7 @@
     btn.textContent = 'Saving...';
     btn.disabled = true;
     try {
-      const res = await fetch(`/api/docs/${encodeURIComponent(modalProject)}/${modalTab}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-      });
-      const data = await res.json();
+      const data = await api(`/api/docs/${encodeURIComponent(modalProject)}/${modalTab}`, { method: 'PUT', body: { content } });
       if (data.ok) {
         modalDocRaw = content;
         modalDocDirty = false;
@@ -1395,8 +1386,7 @@
     }
     el.innerHTML = '<div class="modal-loading">Loading...</div>';
     try {
-      const res = await fetch(`/api/docs/${encodeURIComponent(modalProject)}/${modalTab}`);
-      const data = await res.json();
+      const data = await api(`/api/docs/${encodeURIComponent(modalProject)}/${modalTab}`);
       if (data.error) {
         el.innerHTML = `<div class="modal-loading">${esc(data.error)}</div>`;
       } else {
@@ -1544,11 +1534,7 @@
     </div>`;
     addCard.insertAdjacentHTML('afterend', cardHtml);
 
-    fetch(`/api/v2/future/${encodeURIComponent(project)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, prompt }),
-    }).then(r => r.json()).then(task => {
+    api(`/api/v2/future/${encodeURIComponent(project)}`, { method: 'POST', body: { title, prompt } }).then(task => {
       // Update temp card with real ID (if not yet replaced by re-render)
       const tempCard = document.querySelector(`[data-nt-id="${tempId}"]`);
       if (tempCard) tempCard.dataset.ntId = task.id;
@@ -1557,7 +1543,7 @@
 
   async function deleteFutureTask(project, taskId) {
     try {
-      await fetch(`/api/v2/future/${encodeURIComponent(project)}/${taskId}`, { method: 'DELETE' });
+      await api(`/api/v2/future/${encodeURIComponent(project)}/${taskId}`, { method: 'DELETE' });
       load();
     } catch(e) { /* silent */ }
   }
@@ -1590,11 +1576,7 @@
     const cards = Array.from(_dragCard.parentNode.querySelectorAll('.nt-card'));
     const ids = cards.map(c => c.dataset.ntId).reverse();  // reverse back: bottom=high priority → JSON front
     _dragCard = null;
-    fetch(`/api/v2/future/${encodeURIComponent(project)}/reorder`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order: ids }),
-    }).catch(() => {});
+    api(`/api/v2/future/${encodeURIComponent(project)}/reorder`, { method: 'PUT', body: { order: ids } }).catch(() => {});
   }
 
   function autoResizeTextarea(el) {
@@ -1675,11 +1657,7 @@
       <span class="nt-card-text">${title.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>
     </div>`;
     card.onclick = (e) => { e.stopPropagation(); editNtCard(card); };
-    fetch(`/api/v2/future/${encodeURIComponent(project)}/${taskId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, prompt }),
-    }).finally(() => { card._saving = false; });
+    api(`/api/v2/future/${encodeURIComponent(project)}/${taskId}`, { method: 'PUT', body: { title, prompt } }).finally(() => { card._saving = false; });
   }
 
   function renderCol(p) {
@@ -1886,7 +1864,7 @@
   // ---- Notes CRUD ----
   async function loadNotes() {
     try {
-      notesData = await fetch('/api/ideas').then(r => r.json());
+      notesData = await api('/api/ideas');
       renderNotes();
     } catch(e) { /* silent */ }
   }
@@ -1898,12 +1876,7 @@
     const y = Math.round(40 + Math.random() * 80);
 
     try {
-      const res = await fetch('/api/ideas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: '', description: '', x, y }),
-      });
-      const idea = await res.json();
+      const idea = await api('/api/ideas', { method: 'POST', body: { title: '', description: '', x, y } });
       notesData.push(idea);
       const el = renderNote(idea);
       notesLayer.appendChild(el);
@@ -1938,11 +1911,7 @@
     }
 
     try {
-      await fetch(`/api/ideas/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fields),
-      });
+      await api(`/api/ideas/${id}`, { method: 'PUT', body: fields });
     } catch(e) { /* silent */ }
   }
 
@@ -1952,7 +1921,7 @@
     if (el) el.remove();
     notesData = notesData.filter(n => n.id !== id);
     try {
-      await fetch(`/api/ideas/${id}`, { method: 'DELETE' });
+      await api(`/api/ideas/${id}`, { method: 'DELETE' });
     } catch(e) { /* silent */ }
   }
 
@@ -1974,12 +1943,7 @@
     if (!name) return;
 
     try {
-      const res = await fetch(`/api/ideas/${id}/promote`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_name: name }),
-      });
-      const data = await res.json();
+      const data = await api(`/api/ideas/${id}/promote`, { method: 'POST', body: { project_name: name } });
       if (data.error) {
         alert(data.error);
         return;
@@ -1997,7 +1961,7 @@
   // ---- Fetch ----
   async function load() {
     try {
-      const data = await fetch('/api/projects').then(r => r.json());
+      const data = await api('/api/projects');
       render(data.projects);
       const d = new Date(data.updated_at * 1000);
       statusEl.textContent = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
@@ -2011,7 +1975,7 @@
       // Skip re-render if user is editing in this column
       if (col.querySelector('.nt-editing, .nt-add-input:focus')) return;
 
-      const data = await fetch('/api/projects').then(r => r.json());
+      const data = await api('/api/projects');
       const p = (data.projects || []).find(p => p.name === projectName);
       if (!p) return;
       const streamEl = col.querySelector('.stream');
@@ -2028,7 +1992,7 @@
   async function forceRefresh() {
     statusEl.textContent = '...';
     try {
-      const data = await fetch('/api/refresh',{method:'POST'}).then(r=>r.json());
+      const data = await api('/api/refresh', { method: 'POST' });
       render(data.projects);
       const d = new Date(data.updated_at * 1000);
       statusEl.textContent = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
@@ -2165,11 +2129,7 @@
 
     // Need ttyd port — request one
     if (!session.ttyd_port) {
-      fetch('/api/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project }),
-      }).then(() => loadSessions().then(() => {
+      api('/api/sessions', { method: 'POST', body: { project } }).then(() => loadSessions().then(() => {
         const s = sessionsData.find(x => x.project === project);
         if (s && s.ttyd_port) {
           if (prefersPopout) openPopOut(project);
@@ -2332,8 +2292,7 @@
     const host = window.location.hostname;
     const wsUrl = `ws://${host}:${ttydPort}/ttyd/${project}/ws`;
 
-    fetch(`/api/ttyd-token/${encodeURIComponent(project)}`)
-      .then(r => r.json())
+    api(`/api/ttyd-token/${encodeURIComponent(project)}`)
       .then(tokenData => {
         const ws = new WebSocket(wsUrl, ['tty']);
         ws.binaryType = 'arraybuffer';
@@ -2518,7 +2477,7 @@
 
   async function killSession(project) {
     try {
-      await fetch(`/api/sessions/${encodeURIComponent(project)}`, { method: 'DELETE' });
+      await api(`/api/sessions/${encodeURIComponent(project)}`, { method: 'DELETE' });
       if (termProject === project) {
         closeTerminal();
       }
@@ -2636,7 +2595,7 @@
 
   async function loadCliCommands() {
     try {
-      savedCliCommands = await fetch('/api/cli-commands').then(r => r.json());
+      savedCliCommands = await api('/api/cli-commands');
     } catch(e) { /* silent */ }
   }
 
@@ -2681,11 +2640,7 @@
 
   async function deleteCliCommand(cmd) {
     try {
-      savedCliCommands = await fetch('/api/cli-commands', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command: cmd }),
-      }).then(r => r.json());
+      savedCliCommands = await api('/api/cli-commands', { method: 'DELETE', body: { command: cmd } });
       renderCliList();
     } catch(e) { /* silent */ }
   }
@@ -2695,11 +2650,7 @@
     const project = cliDialogProject;
     closeCliDialog();
     try {
-      await fetch('/api/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project, cli_command: cmd }),
-      });
+      await api('/api/sessions', { method: 'POST', body: { project, cli_command: cmd } });
       await loadSessions();
       openTerminal(project);
     } catch(e) { /* silent */ }
@@ -2716,11 +2667,7 @@
     const cmd = input.value.trim();
     if (!cmd) return;
     try {
-      savedCliCommands = await fetch('/api/cli-commands', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command: cmd }),
-      }).then(r => r.json());
+      savedCliCommands = await api('/api/cli-commands', { method: 'POST', body: { command: cmd } });
       renderCliList();
       input.value = '';
     } catch(e) { /* silent */ }
@@ -2775,7 +2722,7 @@
   // ---- Session status polling ----
   async function loadSessions() {
     try {
-      sessionsData = await fetch('/api/sessions').then(r => r.json());
+      sessionsData = await api('/api/sessions');
       updateStatusDots();
       updateTermStatus();
     } catch(e) { /* silent */ }
@@ -2871,7 +2818,7 @@
     // Remove all existing glow
     document.querySelectorAll('.autonext-active').forEach(el => el.classList.remove('autonext-active'));
     try {
-      const state = await fetch('/api/autonext-state').then(r => r.json());
+      const state = await api('/api/autonext-state');
       if (!state || !state.queue) return;
       // Apply glow to current task card in the project
       const col = document.querySelector(`.col[data-project="${state.project}"]`);

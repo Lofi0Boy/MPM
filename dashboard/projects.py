@@ -95,11 +95,20 @@ def load_past(project_dir: Path, date_str: str | None = None) -> list:
     return tasks
 
 
+def _get_tz():
+    try:
+        config = _load_config()
+        from zoneinfo import ZoneInfo
+        return ZoneInfo(config.get("timezone", "UTC"))
+    except Exception:
+        from datetime import timezone as _tz
+        return _tz.utc
+
+
 def append_past(project_dir: Path, task: dict) -> None:
     """Append a completed task to today's past file."""
-    from datetime import datetime, timezone, timedelta
-    kst = timezone(timedelta(hours=9))
-    date_str = datetime.now(kst).strftime("%y%m%d")
+    from datetime import datetime
+    date_str = datetime.now(_get_tz()).strftime("%y%m%d")
     past_dir = _data_path(project_dir) / "past"
     path = past_dir / f"{date_str}.json"
     existing = _load_json(path, default=[])
