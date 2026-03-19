@@ -26,6 +26,14 @@
         ]
       }
     ],
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          { "type": "command", "command": ".mpm/scripts/hook-notify.sh waiting" }
+        ]
+      }
+    ],
     "Stop": [
       {
         "matcher": "",
