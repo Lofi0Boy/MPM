@@ -9,6 +9,7 @@ Usage:
     task.py add <title> <prompt>          # → future (append to back)
     task.py update <session_id> <field> <value>  # update current task field
     task.py status                        # show current state
+    task.py remove <task_id>              # remove task from future queue
 """
 
 import json
@@ -96,6 +97,10 @@ def cmd_complete(session_id, status, memo=None, result=None):
 
     # Remove from current
     current_path.unlink()
+    # Clean up review flag if exists
+    reviewed_flag = CURRENT_DIR / f"{session_id}.reviewed"
+    if reviewed_flag.exists():
+        reviewed_flag.unlink()
     print(f"OK: {task['title']} → past/{date_str}.json ({status})")
 
     # If postpone/modified, create new card in future

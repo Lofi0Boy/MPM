@@ -167,6 +167,87 @@ def parse_project_md(project_dir: Path) -> tuple[str, str]:
     return project_name, description
 
 
+def parse_phases_from_md(project_dir: Path) -> list[dict]:
+    """Parse phases from PROJECT.md's ## Phases section.
+
+    Format:
+        ## Phases
+        ### Phase Name [active] [60%]
+        Description text
+
+        ### Another Phase [0%]
+        Description text
+    """
+    text = load_project_md(project_dir)
+    if not text:
+        return []
+
+    # Find ## Phases section
+    lines = text.splitlines()
+    in_phases = False
+    phases: list[dict] = []
+    current_phase = None
+
+    for line in lines:
+        stripped = line.strip()
+
+        # Detect start of ## Phases section
+        if re.match(r"^##\s+Phases\s*$", stripped, re.IGNORECASE):
+            in_phases = True
+            continue
+
+        # Exit on next ## section
+        if in_phases and re.match(r"^##\s+", stripped) and not re.match(r"^###", stripped):
+            break
+
+        if not in_phases:
+            continue
+
+        # Parse ### heading
+        m = re.match(r"^###\s+(.+)", stripped)
+        if m:
+            if current_phase:
+                phases.append(current_phase)
+
+            heading = m.group(1).strip()
+            # Extract [active] tag
+            is_active = "[active]" in heading.lower()
+            heading = re.sub(r"\[active\]", "", heading, flags=re.IGNORECASE).strip()
+
+            # Extract [N%] progress
+            progress = 0.0
+            pm = re.search(r"\[(\d+)%\]", heading)
+            if pm:
+                progress = int(pm.group(1)) / 100.0
+                heading = re.sub(r"\[\d+%\]", "", heading).strip()
+
+            current_phase = {
+                "name": heading,
+                "description": "",
+                "goals": [],
+                "status": "active" if is_active else ("done" if progress >= 1.0 else "planned"),
+                "progress": progress,
+            }
+            continue
+
+        # Bullet points → goals list
+        if current_phase and stripped.startswith("- "):
+            current_phase["goals"].append(stripped[2:])
+            continue
+
+        # Non-bullet text → description
+        if current_phase and stripped:
+            if current_phase["description"]:
+                current_phase["description"] += " " + stripped
+            else:
+                current_phase["description"] = stripped
+
+    if current_phase:
+        phases.append(current_phase)
+
+    return phases
+
+
 # ---------------------------------------------------------------------------
 # Data models
 # ---------------------------------------------------------------------------
@@ -179,6 +260,7 @@ class ProjectData:
     current_tasks: list[dict] = field(default_factory=list)
     future_tasks: list[dict] = field(default_factory=list)
     past_tasks: list[dict] = field(default_factory=list)
+    phases: list[dict] = field(default_factory=list)
     project_md: str = ""
     error: Optional[str] = None
 
@@ -190,6 +272,7 @@ class ProjectData:
             "current_tasks": self.current_tasks,
             "future_tasks": self.future_tasks,
             "past_tasks": self.past_tasks,
+            "phases": self.phases,
             "project_md": self.project_md,
             "error": self.error,
         }
@@ -199,6 +282,10 @@ class ProjectData:
 # Loaders
 # ---------------------------------------------------------------------------
 
+def load_phases(project_dir: Path) -> list:
+    return parse_phases_from_md(project_dir)
+
+
 def load_project(project_dir: Path) -> ProjectData:
     name = project_dir.name
     project_name, description = parse_project_md(project_dir)
@@ -207,6 +294,7 @@ def load_project(project_dir: Path) -> ProjectData:
     current_tasks = load_current_tasks(project_dir)
     future_tasks = load_future(project_dir)
     past_tasks = load_past(project_dir)
+    phases = load_phases(project_dir)
     project_md = load_project_md(project_dir)
 
     return ProjectData(
@@ -216,6 +304,7 @@ def load_project(project_dir: Path) -> ProjectData:
         current_tasks=current_tasks,
         future_tasks=future_tasks,
         past_tasks=past_tasks,
+        phases=phases,
         project_md=project_md,
     )
 

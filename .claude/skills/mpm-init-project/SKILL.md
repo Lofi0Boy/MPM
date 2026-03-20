@@ -28,14 +28,30 @@ The user MUST provide:
 1. **Project name** (English) — used as machine-readable identifier on the dashboard
 2. **One-line description** — displayed below the project name on the dashboard
 
-## Step 4: What to work on first
+## Step 4: Define Phases
+
+Phases are milestone-level goals with verifiable outcomes. Each phase groups related tasks.
+
+Ask the user:
+- "What are the major milestones or features you want to achieve?"
+- "Let's define phases — each phase should have a clear, verifiable goal."
+
+For each phase the user describes:
+1. Clarify a **name** (short, descriptive)
+2. Clarify a **goal** (must be verifiable — e.g., "Users can log in via OAuth and see their dashboard" not "Implement auth")
+
+**Minimum 1 phase required.** Typically 2-4 phases for a new project.
+
+Phases will be written directly into PROJECT.md in Step 6. Show the phase list to the user for confirmation before proceeding.
+
+## Step 5: What to work on first
 
 Discuss with the user:
-- "What would you like to tackle first?"
-- "What's the most important thing to get done right now?"
+- "Which phase should we start with?"
+- "What's the first concrete task within that phase?"
 - Help break down their answer into concrete, actionable tasks.
 
-## Step 5: Write PROJECT.md
+## Step 6: Write PROJECT.md
 
 Write to `.mpm/docs/PROJECT.md`.
 
@@ -45,8 +61,18 @@ Write to `.mpm/docs/PROJECT.md`.
 
 First paragraph is the project description (displayed on the dashboard header).
 
+## Phases
+
+### First Phase Name [active] [0%]
+Verifiable goal description
+
+### Second Phase Name [0%]
+Another goal description
+
 ## ... (optional sections — content can be any language)
 ```
+
+The **Phases** section is required. Use `### Phase Name [active] [N%]` format. Mark the first phase as `[active]`.
 
 **IMPORTANT:** The `# heading` (project name) MUST be written in English — MPM uses it as a machine-readable identifier. The description and body content can be in any language.
 
@@ -54,9 +80,9 @@ The dashboard parses:
 - **`# heading`** → project display name (English required)
 - **First non-empty line after `#`** (before any `##`) → description
 
-## Step 6: Create initial future tasks
+## Step 7: Create initial future tasks
 
-Based on the discussion in Step 4, create future tasks:
+Based on the discussion in Step 5, create future tasks:
 ```bash
 python3 .mpm/scripts/task.py add "task title" "detailed prompt"
 ```
