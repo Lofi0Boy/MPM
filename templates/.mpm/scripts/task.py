@@ -103,7 +103,7 @@ def cmd_complete(session_id, status, memo=None, result=None):
         new_task = {
             "id": uuid.uuid4().hex[:12],
             "title": task["title"],
-            "prompt": f"[재시도] {task['prompt']}\n\n이전 시도 결과: {task.get('result', 'N/A')}\n메모: {memo or 'N/A'}",
+            "prompt": f"[Retry] {task['prompt']}\n\nPrevious result: {task.get('result', 'N/A')}\nMemo: {memo or 'N/A'}",
             "goal": None,
             "approach": None,
             "verification": None,

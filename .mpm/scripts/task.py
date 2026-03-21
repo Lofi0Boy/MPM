@@ -6,10 +6,9 @@ Usage:
     task.py pop <session_id>              # future → current
     task.py create <session_id> <title> <prompt>  # → current (direct, skip future)
     task.py complete <session_id> <status> [--memo "..."]  # current → past
-    task.py add <title> <prompt> [--goal <goal_id>]  # → future (append to back)
+    task.py add <title> <prompt>          # → future (append to back)
     task.py update <session_id> <field> <value>  # update current task field
     task.py status                        # show current state
-    task.py remove <task_id>              # remove task from future queue
 """
 
 import json
@@ -97,10 +96,6 @@ def cmd_complete(session_id, status, memo=None, result=None):
 
     # Remove from current
     current_path.unlink()
-    # Clean up review flag if exists
-    reviewed_flag = CURRENT_DIR / f"{session_id}.reviewed"
-    if reviewed_flag.exists():
-        reviewed_flag.unlink()
     print(f"OK: {task['title']} → past/{date_str}.json ({status})")
 
     # If postpone/modified, create new card in future
@@ -108,8 +103,7 @@ def cmd_complete(session_id, status, memo=None, result=None):
         new_task = {
             "id": uuid.uuid4().hex[:12],
             "title": task["title"],
-            "prompt": f"[재시도] {task['prompt']}\n\n이전 시도 결과: {task.get('result', 'N/A')}\n메모: {memo or 'N/A'}",
-            "goal_id": task.get("goal_id"),
+            "prompt": f"[Retry] {task['prompt']}\n\nPrevious result: {task.get('result', 'N/A')}\nMemo: {memo or 'N/A'}",
             "goal": None,
             "approach": None,
             "verification": None,
@@ -148,7 +142,6 @@ def cmd_create(session_id, title, prompt):
         "id": uuid.uuid4().hex[:12],
         "title": title,
         "prompt": prompt,
-        "goal_id": None,
         "goal": None,
         "approach": None,
         "verification": None,
@@ -165,14 +158,13 @@ def cmd_create(session_id, title, prompt):
     print(f"  title: {title}")
 
 
-def cmd_add(title, prompt, goal_id=None):
+def cmd_add(title, prompt):
     """Add a new task to the back of future queue."""
     future = _load_json(FUTURE_PATH, [])
     task = {
         "id": uuid.uuid4().hex[:12],
         "title": title,
         "prompt": prompt,
-        "goal_id": goal_id,
         "goal": None,
         "approach": None,
         "verification": None,
@@ -188,8 +180,6 @@ def cmd_add(title, prompt, goal_id=None):
     print(f"OK: added to future ({len(future)} total)")
     print(f"  id: {task['id']}")
     print(f"  title: {title}")
-    if goal_id:
-        print(f"  goal_id: {goal_id}")
 
 
 def cmd_status():
@@ -231,7 +221,7 @@ def cmd_update_field(session_id, field, value):
         print(f"ERROR: no active task for session {session_id}")
         sys.exit(1)
 
-    valid_fields = ("title", "goal", "goal_id", "approach", "verification", "result", "memo")
+    valid_fields = ("title", "goal", "approach", "verification", "result", "memo")
     if field not in valid_fields:
         print(f"ERROR: field must be one of {valid_fields}")
         sys.exit(1)
@@ -268,12 +258,7 @@ def main():
                 i += 1
         cmd_complete(sys.argv[2], sys.argv[3], memo=memo, result=result)
     elif cmd == "add" and len(sys.argv) >= 4:
-        goal_id = None
-        if "--goal" in sys.argv:
-            gi = sys.argv.index("--goal")
-            if gi + 1 < len(sys.argv):
-                goal_id = sys.argv[gi + 1]
-        cmd_add(sys.argv[2], sys.argv[3], goal_id=goal_id)
+        cmd_add(sys.argv[2], sys.argv[3])
     elif cmd == "status":
         cmd_status()
     elif cmd == "remove" and len(sys.argv) >= 3:
