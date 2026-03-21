@@ -1046,7 +1046,6 @@
       border-radius: 3px;
     }
     .term-slot-label.dev { color: #5cb85c; background: rgba(92,184,92,0.12); }
-    .term-slot-label.pm  { color: #e8c547; background: rgba(232,197,71,0.12); }
     .term-slot-status {
       font-size: 10px;
       color: #888;
@@ -1191,8 +1190,9 @@
 
 <header>
   <h1>MPM</h1>
+  <button class="btn" onclick="addProject()">+ Project</button>
   <button class="btn" onclick="addNote()">+ Note</button>
-  <button class="btn" onclick="forceRefresh()">Refresh</button>
+  <button class="btn" onclick="openPortDialog()">Port</button>
   <button class="btn" onclick="toggleShortcutPanel()">Shortcuts</button>
   <span id="status">Loading...</span>
 </header>
@@ -1217,8 +1217,7 @@
     <div class="term-header-actions">
       <button class="term-hdr-btn" id="term-start-btn" onclick="startCli()">Start CLI</button>
       <button class="term-hdr-btn" id="term-kill-btn" onclick="killCurrentSession()">Kill CLI</button>
-      <button class="term-hdr-btn" id="term-pm-btn" onclick="togglePmTerminal()" title="Toggle PM terminal">PM</button>
-      <button class="term-hdr-btn" onclick="popOutTerminal()" title="Open in new window">&#8599;</button>
+<button class="term-hdr-btn" onclick="popOutTerminal()" title="Open in new window">&#8599;</button>
       <button class="term-hdr-btn" onclick="toggleTermMode()" title="Toggle bottom/right">&#8596;</button>
       <button class="term-hdr-btn" onclick="closeTerminal()">Close</button>
     </div>
@@ -1522,18 +1521,24 @@
   }
 
   function renderPhaseHeader(p) {
-    const phases = p.phases || [];
-    const activeIdx = phases.findIndex(ph => ph.status === 'active');
-    if (activeIdx < 0) return '';
-    const active = phases[activeIdx];
-    const pct = Math.round((active.progress || 0) * 100);
+    const phasesData = p.phases || {};
+    const phases = phasesData.phases || [];
+    const currentPhaseId = phasesData.current_phase;
+    if (!currentPhaseId || phases.length === 0) return '';
+    const active = phases.find(ph => ph.id === currentPhaseId);
+    if (!active) return '';
+    const pct = active.progress || 0;
     const descHtml = active.description
       ? `<div style="font-size:11px;color:#555;margin-top:4px;line-height:1.3;">${esc(active.description)}</div>`
       : '';
-    const goalsHtml = (active.goals || []).length > 0
-      ? `<div style="margin-top:3px;">${active.goals.map(g =>
-          `<div style="font-size:11px;color:#555;line-height:1.5;padding-left:10px;text-indent:-10px;">· ${esc(g)}</div>`
-        ).join('')}</div>`
+    const goals = (active.goals || []).filter(g => g.title !== 'Misc' || g.task_total > 0);
+    const goalsHtml = goals.length > 0
+      ? `<div style="margin-top:3px;">${goals.map(g => {
+          const check = g.done ? '&#10003; ' : '';
+          const taskInfo = g.task_total > 0 ? ` (${g.task_done}/${g.task_total})` : '';
+          const color = g.done ? '#999' : '#555';
+          return `<div style="font-size:11px;color:${color};line-height:1.5;padding-left:10px;text-indent:-10px;">· ${check}${esc(g.title)}${taskInfo}</div>`;
+        }).join('')}</div>`
       : '';
     return `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #eee;">
       <div style="font-size:11px;color:#000;">${esc(active.name)}</div>
@@ -1542,22 +1547,6 @@
       </div>
       ${descHtml}
       ${goalsHtml}
-    </div>`;
-  }
-
-  function renderPmCard(p) {
-    const pmKey = p.name + '--pm';
-    const pmSession = sessionsData.find(s => s.project === pmKey);
-    const state = pmSession ? pmSession.state : 'off';
-    const stateLabel = state === 'running' ? (pmSession.cli_name || 'running') : state === 'idle' ? 'Idle' : 'Start PM';
-    const dotClass = state === 'off' ? 'off' : state === 'idle' ? 'idle' : 'running';
-    return `<div class="card" style="padding:8px 12px;min-height:auto;border:1px solid #e8c547;cursor:pointer;background:#fffdf5;"
-      onclick="openPmFromCard('${esc(p.name)}')" data-pm-card="${esc(p.name)}">
-      <div style="display:flex;align-items:center;gap:6px;">
-        <span class="status-dot ${dotClass}" style="flex-shrink:0"></span>
-        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#e8c547;">PM</span>
-        <span style="font-size:11px;color:#666;">${esc(stateLabel)}</span>
-      </div>
     </div>`;
   }
 
@@ -2082,14 +2071,32 @@
     } catch(e) { /* silent */ }
   }
 
-  async function forceRefresh() {
-    statusEl.textContent = '...';
+  async function addProject() {
     try {
-      const data = await api('/api/refresh', { method: 'POST' });
-      render(data.projects);
-      const d = new Date(data.updated_at * 1000);
-      statusEl.textContent = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    } catch(e) { statusEl.textContent = 'Error'; }
+      const resp = await api('/api/init-terminal', { method: 'POST', body: {} });
+      if (resp.ttyd_port) {
+        showTerminal(resp.project, resp.ttyd_port, { minimal: true });
+      }
+    } catch(e) { alert('Failed to open init terminal'); }
+  }
+
+  async function openPortDialog() {
+    let currentPort;
+    try {
+      const resp = await api('/api/config/port');
+      currentPort = resp.port;
+    } catch(e) { currentPort = location.port || '5100'; }
+    const newPort = prompt(`Dashboard port (current: ${currentPort}):`, currentPort);
+    if (!newPort || newPort === String(currentPort)) return;
+    const port = parseInt(newPort, 10);
+    if (isNaN(port) || port < 1 || port > 65535) { alert('Invalid port number'); return; }
+    try {
+      await api('/api/config/port', {
+        method: 'PUT',
+        body: {port}
+      });
+      alert(`Port changed to ${port}. Restart dashboard to apply:\n  mpm stop && mpm dashboard`);
+    } catch(e) { alert('Failed to update port'); }
   }
 
   // ---- Keyboard shortcuts (keyup for IME compat) ----
@@ -2188,7 +2195,6 @@
   window.name = 'mpm-dashboard';
   const socket = io();
   let termProject = null;
-  let termPmProject = null;  // PM slot: "{project}--pm" or null
   let sessionsData = [];
 
   const termPanel = document.getElementById('terminal-panel');
@@ -2247,27 +2253,34 @@
   function getOrCreateTerm(project, ttydPort) {
     if (termCache[project]) return termCache[project];
 
-    const isPm = project.includes('--pm');
-    const baseProject = isPm ? project.split('--')[0] : project;
-    const role = isPm ? 'pm' : 'dev';
-
     // Create slot with sub-header and xterm area
     const slot = document.createElement('div');
     slot.className = 'term-slot';
-    slot.dataset.termSlot = role;
+    slot.dataset.termSlot = 'dev';
     slot.dataset.termProject = project;
     slot.style.display = 'none';
 
+    const isMinimal = project === '_mpm-init';
     const slotHeader = document.createElement('div');
     slotHeader.className = 'term-slot-header';
-    slotHeader.innerHTML = `
-      <span class="term-slot-label ${role}">${role.toUpperCase()}</span>
-      <span class="term-slot-status" data-slot-status="${project}"></span>
-      <div class="term-slot-actions">
-        <button class="term-hdr-btn" onclick="startCliForSlot('${project}')" data-slot-start="${project}">Start</button>
-        <button class="term-hdr-btn" onclick="killSlotSession('${project}')" data-slot-kill="${project}" style="display:none">Kill</button>
-      </div>
-    `;
+    if (isMinimal) {
+      slotHeader.innerHTML = `
+        <span class="term-slot-label dev">INIT</span>
+        <span class="term-slot-status" data-slot-status="${project}"></span>
+        <div class="term-slot-actions">
+          <button class="term-hdr-btn" onclick="killSlotSession('${project}')" data-slot-kill="${project}">Kill</button>
+        </div>
+      `;
+    } else {
+      slotHeader.innerHTML = `
+        <span class="term-slot-label dev">DEV</span>
+        <span class="term-slot-status" data-slot-status="${project}"></span>
+        <div class="term-slot-actions">
+          <button class="term-hdr-btn" onclick="startCliForSlot('${project}')" data-slot-start="${project}">Start</button>
+          <button class="term-hdr-btn" onclick="killSlotSession('${project}')" data-slot-kill="${project}" style="display:none">Kill</button>
+        </div>
+      `;
+    }
     slot.appendChild(slotHeader);
 
     const container = document.createElement('div');
@@ -2376,31 +2389,35 @@
     return entry;
   }
 
-  function showTerminal(project, ttydPort) {
-    const isPm = project.includes('--pm');
-    const baseProject = isPm ? project.split('--')[0] : project;
-
-    // Hide previous dev terminal if switching projects (not PM)
-    if (!isPm && termProject && termProject !== project && termCache[termProject]) {
+  function showTerminal(project, ttydPort, opts = {}) {
+    const minimal = project === '_mpm-init';
+    // Hide previous dev terminal if switching projects
+    if (termProject && termProject !== project && termCache[termProject]) {
       termCache[termProject].slot.style.display = 'none';
-      // Also hide PM slot from previous project
-      if (termPmProject && termCache[termPmProject]) {
-        termCache[termPmProject].slot.style.display = 'none';
-        termPmProject = null;
-      }
     }
 
-    if (isPm) {
-      termPmProject = project;
-    } else {
-      termProject = project;
-      termProjectName.textContent = project;
-    }
+    termProject = project;
+    termProjectName.textContent = minimal ? 'mpm init' : project;
 
     termPanel.classList.add('open');
     document.body.classList.add('term-open');
-    updateTermStatus();
-    if (!isPm) setFocusedProject(baseProject);
+
+    // Hide/show header buttons based on mode
+    const startBtn = document.getElementById('term-start-btn');
+    const killBtn = document.getElementById('term-kill-btn');
+    const popOutBtn = document.querySelector('[onclick="popOutTerminal()"]');
+    const toggleBtn = document.querySelector('[onclick="toggleTermMode()"]');
+    const closeBtn = document.querySelector('.term-header-actions [onclick="closeTerminal()"]');
+    if (startBtn) startBtn.style.display = minimal ? 'none' : '';
+    if (popOutBtn) popOutBtn.style.display = minimal ? 'none' : '';
+    if (closeBtn) closeBtn.style.display = minimal ? 'none' : '';
+    if (toggleBtn) toggleBtn.style.display = '';
+    if (killBtn) killBtn.style.display = minimal ? 'inline-block' : '';
+
+    if (!minimal) {
+      updateTermStatus();
+      setFocusedProject(project);
+    }
 
     const entry = getOrCreateTerm(project, ttydPort);
     entry.slot.style.display = 'flex';
@@ -2412,10 +2429,6 @@
     requestAnimationFrame(() => requestAnimationFrame(() => {
       entry.fitAddon.fit();
       entry.term.focus();
-      // Also refit dev terminal if PM was just added (layout changed)
-      if (isPm && termProject && termCache[termProject]) {
-        termCache[termProject].fitAddon.fit();
-      }
       // Sync resize to ttyd
       if (entry.ws && entry.ws.readyState === WebSocket.OPEN) {
         entry.ws.send(new TextEncoder().encode('1' + JSON.stringify({ columns: entry.term.cols, rows: entry.term.rows })));
@@ -2473,7 +2486,12 @@
           }
         };
 
-        ws.onclose = () => entry.term.write('\r\n\x1b[90m[connection closed]\x1b[0m\r\n');
+        ws.onclose = () => {
+          entry.term.write('\r\n\x1b[90m[connection closed]\x1b[0m\r\n');
+          if (project === '_mpm-init') {
+            setTimeout(() => { closeTerminal(); loadSessions(); }, 1000);
+          }
+        };
         ws.onerror = () => entry.term.write('\r\n\x1b[31m[connection error]\x1b[0m\r\n');
 
         entry.term.onData(data => {
@@ -2603,14 +2621,10 @@
     if (termProject && termCache[termProject]) {
       termCache[termProject].slot.style.display = 'none';
     }
-    if (termPmProject && termCache[termPmProject]) {
-      termCache[termPmProject].slot.style.display = 'none';
-    }
     termPanel.classList.remove('open');
     document.body.classList.remove('term-open');
     if (focusedProject === termProject) focusedProject = null;
     termProject = null;
-    termPmProject = null;
     updateTermDimming();
     requestAnimationFrame(fixStreamlines);
   }
@@ -2619,23 +2633,12 @@
     try {
       await api(`/api/sessions/${encodeURIComponent(project)}`, { method: 'DELETE' });
       // Clear border effect immediately
-      const baseProject = project.includes('--') ? project.split('--')[0] : project;
-      applyAgentStatus(baseProject, 'offline');
+      applyAgentStatus(project, 'offline');
       const cache = JSON.parse(localStorage.getItem('agentStatus') || '{}');
-      delete cache[baseProject];
+      delete cache[project];
       localStorage.setItem('agentStatus', JSON.stringify(cache));
       if (termProject === project) {
         closeTerminal();
-      } else if (termPmProject === project) {
-        // Just close PM slot, keep dev
-        if (termCache[project]) termCache[project].slot.style.display = 'none';
-        termPmProject = null;
-        disposeCachedTerm(project);
-        if (termProject && termCache[termProject]) {
-          requestAnimationFrame(() => termCache[termProject].fitAddon.fit());
-        }
-        loadSessions();
-        return;
       }
       disposeCachedTerm(project);
       loadSessions();
@@ -2646,74 +2649,12 @@
     if (termProject) killSession(termProject);
   }
 
-  // ---- PM terminal slot ----
-  function togglePmTerminal() {
-    if (!termProject) return;
-    const baseProject = termProject.includes('--') ? termProject.split('--')[0] : termProject;
-    const pmKey = `${baseProject}--pm`;
-
-    if (termPmProject) {
-      // Close PM slot
-      if (termCache[termPmProject]) {
-        termCache[termPmProject].slot.style.display = 'none';
-      }
-      termPmProject = null;
-      // Refit dev terminal to full width
-      if (termProject && termCache[termProject]) {
-        requestAnimationFrame(() => termCache[termProject].fitAddon.fit());
-      }
-      return;
-    }
-
-    // Open PM slot — check if session exists
-    const pmSession = sessionsData.find(s => s.project === pmKey);
-    if (pmSession && pmSession.ttyd_port) {
-      showTerminal(pmKey, pmSession.ttyd_port);
-    } else {
-      // Create PM session
-      api('/api/sessions', {
-        method: 'POST',
-        body: { project: pmKey },
-      }).then(data => {
-        loadSessions().then(() => {
-          const s = sessionsData.find(s => s.project === pmKey);
-          if (s && s.ttyd_port) showTerminal(pmKey, s.ttyd_port);
-        });
-      }).catch(() => {});
-    }
-  }
-
-  function openPmFromCard(project) {
-    // Open dev terminal first if not open, then toggle PM
-    if (!termProject || termProject !== project) {
-      openTerminal(project);
-      setTimeout(() => {
-        if (!termPmProject) togglePmTerminal();
-      }, 1000);
-    } else if (!termPmProject) {
-      togglePmTerminal();
-    }
-  }
-
   function startCliForSlot(project) {
     openCliDialog(project);
   }
 
   function killSlotSession(project) {
-    const isPm = project.includes('--pm');
-    if (isPm) {
-      // Kill PM session and close slot
-      killSession(project);
-      if (termPmProject === project) {
-        termPmProject = null;
-        // Refit dev terminal
-        if (termProject && termCache[termProject]) {
-          requestAnimationFrame(() => termCache[termProject].fitAddon.fit());
-        }
-      }
-    } else {
-      killSession(project);
-    }
+    killSession(project);
   }
 
   function onTermCardClick(e, project, el) {
@@ -2878,13 +2819,7 @@
     try {
       await api('/api/sessions', { method: 'POST', body: { project, cli_command: cmd } });
       await loadSessions();
-      const isPm = project.includes('--pm');
-      if (isPm) {
-        const s = sessionsData.find(s => s.project === project);
-        if (s && s.ttyd_port) showTerminal(project, s.ttyd_port);
-      } else {
-        openTerminal(project);
-      }
+      openTerminal(project);
     } catch(e) { /* silent */ }
   }
 
@@ -3021,11 +2956,15 @@
     termStatusText.textContent = state === 'running' && session.cli_name
       ? `${session.cli_name} running`
       : (labels[state] || '');
-    termStartBtn.style.display = state === 'off' ? '' : 'none';
-    document.getElementById('term-kill-btn').style.display = state === 'off' ? 'none' : '';
+    if (termProject === '_mpm-init') {
+      termStartBtn.style.display = 'none';
+      document.getElementById('term-kill-btn').style.display = '';
+    } else {
+      termStartBtn.style.display = state === 'off' ? '' : 'none';
+      document.getElementById('term-kill-btn').style.display = state === 'off' ? 'none' : '';
+    }
     // Update slot sub-headers
     updateSlotStatus(termProject);
-    if (termPmProject) updateSlotStatus(termPmProject);
   }
 
   function updateSlotStatus(project) {

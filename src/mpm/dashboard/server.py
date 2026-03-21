@@ -535,6 +535,55 @@ def _add_project_to_config(project_path: str) -> None:
         _save_cli_config(config)
 
 
+@app.route("/api/init-terminal", methods=["POST"])
+def api_init_terminal():
+    """Open a terminal in workspace directory for mpm init."""
+    config = _load_cli_config()
+    workspace = config.get("workspace", str(Path.home() / "MpmWorkspace"))
+    Path(workspace).mkdir(parents=True, exist_ok=True)
+
+    # Use a special session name for the init terminal
+    project_name = "_mpm-init"
+    prefix = config.get("tmux_prefix", "mpm")
+    tmux_name = f"{prefix}-{project_name}"
+
+    from mpm.gateway.session_manager import (
+        list_tmux_sessions, _run, _start_ttyd, _get_ttyd_port,
+        send_keys as sm_send_keys, SessionInfo, SessionState,
+    )
+
+    if tmux_name not in list_tmux_sessions():
+        rc, _ = _run(["tmux", "new-session", "-d", "-s", tmux_name, "-c", workspace])
+        if rc != 0:
+            return jsonify({"error": "Failed to create terminal"}), 500
+        _run(["tmux", "set-option", "-t", tmux_name, "mouse", "on"])
+
+    port = _start_ttyd(project_name, tmux_name)
+
+    # Auto-type mpm init
+    _run(["tmux", "send-keys", "-t", tmux_name, "mpm init", "Enter"])
+
+    return jsonify({"project": project_name, "ttyd_port": port})
+
+
+@app.route("/api/config/port", methods=["GET"])
+def api_get_port():
+    config = _load_cli_config()
+    return jsonify({"port": config.get("port", 5100)})
+
+
+@app.route("/api/config/port", methods=["PUT"])
+def api_set_port():
+    data = request.get_json(force=True)
+    port = data.get("port")
+    if not isinstance(port, int) or port < 1 or port > 65535:
+        return jsonify({"error": "Invalid port number"}), 400
+    config = _load_cli_config()
+    config["port"] = port
+    _save_cli_config(config)
+    return jsonify({"port": port, "message": "Restart dashboard to apply"})
+
+
 @app.route("/api/projects/register", methods=["POST"])
 def api_register_project():
     """Register a project directory."""

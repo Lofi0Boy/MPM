@@ -282,8 +282,44 @@ class ProjectData:
 # Loaders
 # ---------------------------------------------------------------------------
 
-def load_phases(project_dir: Path) -> list:
-    return parse_phases_from_md(project_dir)
+def _count_tasks_for_goal(project_dir: Path, goal_id: str) -> tuple[int, int]:
+    """Count (total, done) tasks for a goal across future/current/past."""
+    total = 0
+    done = 0
+    for t in load_future(project_dir):
+        if t.get("goal_id") == goal_id:
+            total += 1
+    for t in load_current_tasks(project_dir):
+        if t.get("goal_id") == goal_id:
+            total += 1
+    for t in load_past(project_dir):
+        if t.get("goal_id") == goal_id:
+            total += 1
+            if t.get("status") == "success":
+                done += 1
+    return total, done
+
+
+def load_phases(project_dir: Path) -> dict:
+    """Load phases from phases.json. Returns {current_phase, phases[]} with computed progress."""
+    phases_path = _data_path(project_dir) / "phases.json"
+    data = _load_json(phases_path, default={"current_phase": None, "phases": []})
+
+    # Compute progress for each phase based on task completion
+    for phase in data.get("phases", []):
+        total = 0
+        done = 0
+        for goal in phase.get("goals", []):
+            t, d = _count_tasks_for_goal(project_dir, goal["id"])
+            goal["task_total"] = t
+            goal["task_done"] = d
+            total += t
+            done += d
+        phase["progress"] = round(done / total * 100) if total > 0 else 0
+        phase["task_total"] = total
+        phase["task_done"] = done
+
+    return data
 
 
 def load_project(project_dir: Path) -> ProjectData:
@@ -294,7 +330,7 @@ def load_project(project_dir: Path) -> ProjectData:
     current_tasks = load_current_tasks(project_dir)
     future_tasks = load_future(project_dir)
     past_tasks = load_past(project_dir)
-    phases = load_phases(project_dir)
+    phases_data = load_phases(project_dir)
     project_md = load_project_md(project_dir)
 
     return ProjectData(
@@ -304,7 +340,7 @@ def load_project(project_dir: Path) -> ProjectData:
         current_tasks=current_tasks,
         future_tasks=future_tasks,
         past_tasks=past_tasks,
-        phases=phases,
+        phases=phases_data,
         project_md=project_md,
     )
 

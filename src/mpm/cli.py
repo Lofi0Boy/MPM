@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 import click
+import questionary
 
 # Config lives in ~/.mpm/
 MPM_HOME = Path.home() / ".mpm"
@@ -52,46 +53,175 @@ def _templates_dir() -> Path:
     raise FileNotFoundError("MPM templates not found. Try reinstalling: uv tool install --force ...")
 
 
+def _is_mpm_hook_entry(entry: dict) -> bool:
+    """Check if a hook entry contains MPM hooks (references .mpm/)."""
+    return any(".mpm/" in h.get("command", "") for h in entry.get("hooks", []))
+
+
+def _merge_settings(dest_path: Path, template_path: Path) -> None:
+    """Merge MPM hooks from template into existing settings.json, preserving user hooks."""
+    template = json.loads(template_path.read_text(encoding="utf-8"))
+    template_hooks = template.get("hooks", {})
+
+    if dest_path.exists():
+        existing = json.loads(dest_path.read_text(encoding="utf-8"))
+    else:
+        existing = {}
+
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+    existing_hooks = existing.get("hooks", {})
+
+    # For each event: remove old MPM entries, then add new ones from template
+    for event, mpm_entries in template_hooks.items():
+        current = existing_hooks.get(event, [])
+        # Remove existing MPM hook entries
+        current = [e for e in current if not _is_mpm_hook_entry(e)]
+        # Add MPM entries from template
+        current.extend(mpm_entries)
+        existing_hooks[event] = current
+
+    existing["hooks"] = existing_hooks
+    dest_path.write_text(
+        json.dumps(existing, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+
+
 @click.group()
-def main():
+@click.pass_context
+def main(ctx):
     """MPM — Multi Project Manager for AI coding agents."""
-    pass
+    if not CONFIG_PATH.exists() and ctx.invoked_subcommand not in ("onboard",):
+        click.echo("MPM has not been initialized yet.")
+        if click.confirm("Run initial setup now?"):
+            ctx.invoke(onboard)
+        else:
+            click.echo("Run 'mpm onboard' when ready.")
+            raise SystemExit(0)
+
+
+def _check_deps() -> list[tuple[str, bool, str]]:
+    """Check system dependencies. Returns [(name, found, install_hint)]."""
+    from shutil import which
+    is_mac = sys.platform == "darwin"
+    deps = [
+        ("tmux", "brew install tmux" if is_mac else "sudo apt install tmux"),
+        ("ttyd", "brew install ttyd" if is_mac else "sudo snap install ttyd --classic"),
+        ("claude", "npm install -g @anthropic-ai/claude-code"),
+    ]
+    return [(name, which(name) is not None, hint) for name, hint in deps]
+
+
+def _get_timezones() -> list[str]:
+    """Get sorted list of all IANA timezones."""
+    from zoneinfo import available_timezones
+    return sorted(available_timezones())
+
+
+def _detect_timezone() -> str:
+    """Auto-detect local timezone."""
+    try:
+        tz_path = os.readlink("/etc/localtime")
+        return tz_path.split("zoneinfo/")[-1]
+    except Exception:
+        import time
+        return time.tzname[0]
 
 
 @main.command()
-def onboard():
+@click.pass_context
+def onboard(ctx):
     """Initial setup — configure timezone, port, and preferences."""
     config = _load_config()
 
     click.echo("Welcome to MPM! Let's set up your configuration.\n")
 
-    # Timezone
-    import time
-    local_tz = time.tzname[0]
-    try:
-        # Try to get IANA timezone
-        tz_path = os.readlink("/etc/localtime")
-        local_tz = tz_path.split("zoneinfo/")[-1]
-    except Exception:
-        pass
+    # 1. Dependency check
+    click.echo("Checking dependencies...")
+    deps = _check_deps()
+    missing = []
+    for name, found, hint in deps:
+        mark = click.style("✓", fg="green") if found else click.style("✗", fg="red")
+        click.echo(f"  {mark} {name}")
+        if not found:
+            missing.append((name, hint))
+    click.echo()
 
-    tz = click.prompt("Timezone", default=config.get("timezone", local_tz))
+    # 2. Timezone (autocomplete with arrow keys)
+    local_tz = config.get("timezone", _detect_timezone())
+    all_tzs = _get_timezones()
+    tz = questionary.autocomplete(
+        "Timezone:",
+        choices=all_tzs,
+        default=local_tz,
+    ).ask()
+    if tz is None:
+        raise SystemExit(0)
 
-    # Port
+    # 3. Port
     port = click.prompt("Dashboard port", default=config.get("port", 5100), type=int)
 
+    # 4. Save config
+    workspace = str(Path.home() / "MpmWorkspace")
     config.update({
         "timezone": tz,
         "port": port,
+        "workspace": config.get("workspace", workspace),
         "tmux_prefix": config.get("tmux_prefix", "mpm"),
         "patterns": config.get("patterns", ["claude"]),
         "projects": config.get("projects", []),
         "saved_commands": config.get("saved_commands", ["claude"]),
     })
     _save_config(config)
-
     click.echo(f"\nConfig saved to {CONFIG_PATH}")
-    click.echo("Run 'mpm dashboard' to start the dashboard.")
+
+    # 5. First project registration
+    if not config.get("projects"):
+        click.echo()
+        choice = questionary.select(
+            "Register your first project:",
+            choices=[
+                "Create new project",
+                "Register existing project",
+                "Skip for now",
+            ],
+        ).ask()
+        if choice is None:
+            raise SystemExit(0)
+
+        ws_path = Path(config["workspace"])
+
+        if choice == "Create new project":
+            ws_path.mkdir(parents=True, exist_ok=True)
+            project_name = questionary.text("Project name:").ask()
+            if not project_name:
+                raise SystemExit(0)
+            project_dir = ws_path / project_name
+            project_dir.mkdir(parents=True, exist_ok=True)
+            click.echo(f"Created {project_dir}")
+            ctx.invoke(init, path=str(project_dir))
+
+        elif choice == "Register existing project":
+            project_path = questionary.path(
+                "Project path:",
+                only_directories=True,
+            ).ask()
+            if not project_path:
+                raise SystemExit(0)
+            project_dir = Path(project_path).resolve()
+            if project_dir.is_dir():
+                ctx.invoke(init, path=str(project_dir))
+            else:
+                click.echo(f"Error: {project_dir} is not a directory")
+
+    # 6. Missing dependency reminder
+    if missing:
+        click.echo()
+        click.echo(click.style("⚠ Missing dependencies:", fg="yellow", bold=True))
+        for name, hint in missing:
+            click.echo(click.style(f"  {name}: {hint}", fg="yellow"))
+        click.echo()
+    else:
+        click.echo("\nRun 'mpm dashboard' to start.")
 
 
 @main.command()
@@ -157,9 +287,31 @@ def _open_browser(url):
 
 
 @main.command()
-@click.option("--path", "-p", default=".", help="Project directory (default: current)")
+@click.option("--path", "-p", default=None, help="Project directory (skip interactive prompt)")
 def init(path):
     """Initialize MPM in a project directory."""
+    if path is None:
+        # Interactive mode: ask where to init
+        cwd = Path.cwd().resolve()
+        choice = questionary.select(
+            "Initialize project in:",
+            choices=[
+                f"Current directory ({cwd})",
+                "Other directory",
+            ],
+        ).ask()
+        if choice is None:
+            return
+        if choice.startswith("Other"):
+            path = questionary.path(
+                "Project path:",
+                only_directories=True,
+            ).ask()
+            if not path:
+                return
+        else:
+            path = str(cwd)
+
     project_dir = Path(path).resolve()
     if not project_dir.is_dir():
         click.echo(f"Error: {project_dir} is not a directory")
@@ -175,13 +327,12 @@ def init(path):
     else:
         click.echo(f"Initializing MPM in {project_dir}")
 
-    # Copy template files
+    # Copy template files (except settings.json — merged separately)
     for src_file in templates.rglob("*"):
         if src_file.is_dir():
             continue
         rel = src_file.relative_to(templates)
         dest = project_dir / rel
-        dest.parent.mkdir(parents=True, exist_ok=True)
 
         # Don't overwrite data files
         if "data/" in str(rel) and dest.exists():
@@ -189,8 +340,18 @@ def init(path):
         # Don't overwrite PROJECT.md
         if rel.name == "PROJECT.md" and dest.exists():
             continue
+        # settings.json is merged, not copied
+        if rel == Path(".claude") / "settings.json":
+            continue
 
+        dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src_file, dest)
+
+    # Merge MPM hooks into settings.json (preserve user hooks)
+    _merge_settings(
+        project_dir / ".claude" / "settings.json",
+        templates / ".claude" / "settings.json",
+    )
 
     # Create required empty directories
     for d in [".mpm/data/current", ".mpm/data/past", ".mpm/docs"]:
@@ -214,6 +375,17 @@ def init(path):
     click.echo(f"✓ MPM initialized in {project_dir}")
     click.echo(f"✓ Registered in {CONFIG_PATH}")
     click.echo("\nStart a Claude Code session to begin. The agent will guide you through PROJECT.md setup.")
+
+    # Notify dashboard to close init terminal and refresh
+    try:
+        import requests as _req
+        port = config.get("port")
+        if not port:
+            raise KeyError
+        _req.delete(f"http://localhost:{port}/api/sessions/_mpm-init", timeout=2)
+        _req.post(f"http://localhost:{port}/api/refresh", timeout=2)
+    except Exception:
+        pass
 
 
 @main.command()
@@ -325,6 +497,25 @@ def status():
         exists = Path(p).exists()
         mark = "✓" if exists else "✗"
         click.echo(f"  {mark} {p}")
+
+
+@main.command()
+@click.argument("port_number", type=int, required=False)
+def port(port_number):
+    """Get or set the dashboard port."""
+    config = _load_config()
+    if port_number is None:
+        click.echo(f"Current port: {config.get('port', 5100)}")
+        return
+    if port_number < 1 or port_number > 65535:
+        click.echo("Error: port must be between 1 and 65535")
+        return
+    config["port"] = port_number
+    _save_config(config)
+    click.echo(f"Port set to {port_number}")
+    pid_file = MPM_HOME / "dashboard.pid"
+    if pid_file.exists():
+        click.echo("Restart dashboard to apply: mpm stop && mpm dashboard")
 
 
 @main.command()

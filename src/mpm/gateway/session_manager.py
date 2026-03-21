@@ -198,16 +198,10 @@ def list_tmux_sessions() -> list[str]:
     return out.splitlines()
 
 
-def _base_project(project: str) -> str:
-    """Strip role suffix (e.g., 'MyApp--pm' → 'MyApp')."""
-    return project.split("--")[0] if "--" in project else project
-
-
 def _find_project_dir(config: dict, project: str) -> Optional[str]:
     """Find the full path for a project name from the config projects list."""
-    base = _base_project(project)
     for p in config.get("projects", []):
-        if Path(p).name == base:
+        if Path(p).name == project:
             return p
     return None
 
@@ -399,17 +393,13 @@ def get_all_sessions() -> list[dict]:
         if not d.is_dir():
             continue
         project_name = d.name
-        # Check both dev (default) and pm sessions
-        for suffix in ("", "--pm"):
-            key = f"{project_name}{suffix}"
-            name = _tmux_session_name(prefix, key)
-            if name in active_tmux:
-                results.append(get_session_info(key))
-            elif not suffix:
-                # Only show "off" for the default (dev) session
-                results.append(SessionInfo(
-                    project=project_name, tmux_name=name, state=SessionState.OFF,
-                ))
+        name = _tmux_session_name(prefix, project_name)
+        if name in active_tmux:
+            results.append(get_session_info(project_name))
+        else:
+            results.append(SessionInfo(
+                project=project_name, tmux_name=name, state=SessionState.OFF,
+            ))
 
     return [
         {
