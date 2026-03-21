@@ -17,6 +17,7 @@ dependencies = [
     "watchdog>=4.0",
     "click>=8.1",
     "questionary>=2.0",
+    "tzdata>=2024.1",
 ]
 
 [project.scripts]
