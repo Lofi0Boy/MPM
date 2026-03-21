@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mpm-dashboard"
+name = "mpm"
 version = "0.1.0"
 description = "Multi Project Manager — Dashboard for AI coding agents"
 readme = "README.md"
