@@ -13,6 +13,8 @@ Before starting, briefly explain to the user what will happen:
 
 Then proceed through the following steps **in order**. Each step must be completed before moving to the next.
 
+At the start of each step, briefly tell the user **what this step is and why it matters** in one sentence. Do not use internal terms like "Layer" or "PPGT" — just explain in plain language.
+
 ---
 
 ## Step 1: Automatic project scan
@@ -34,12 +36,16 @@ Present what you've learned to the user:
 
 ## Step 3: Project name + description
 
+> Tell the user: "First, let's define your project — the name and description will appear on the dashboard."
+
 1. Ask for the **project name** — used as identifier on the dashboard
 2. Ask the user to **describe the project** — listen to their description and organize it into a clear paragraph. Do not force brevity; capture the essence.
 
 Show the organized result to the user for confirmation.
 
 ## Step 4: Define Phase 1
+
+> Tell the user: "A Phase is a milestone — a concrete, verifiable goal you want to reach. Let's define the first one."
 
 Ask the user what they want to achieve first. Based on their answer:
 1. Propose a Phase name and verifiable completion state
@@ -73,6 +79,8 @@ This stores the Phase in `.mpm/data/phases.json` as structured data.
 
 ## Step 6: ARCHITECTURE.md
 
+> Tell the user: "Now I'll document the project's architecture — this helps agents follow consistent patterns when writing code."
+
 1. Scan the codebase — directory structure, imports, patterns, tech stack
 2. Propose an architecture summary: key modules, data flow, conventions to follow
 3. User approves or corrects
@@ -80,11 +88,15 @@ This stores the Phase in `.mpm/data/phases.json` as structured data.
 
 ## Step 7: DESIGN.md
 
+> Tell the user: "Next, let's set up the design system — this keeps the UI visually consistent across all tasks."
+
 1. Judge whether this project has a UI component
 2. If no UI → confirm with user and skip
 3. If UI exists → run `/mpm-init-design` skill
 
 ## Step 8: VERIFICATION.md
+
+> Tell the user: "This document defines how agents can verify their own work without asking you — so they can self-check before reporting done."
 
 1. Inspect available verification tools in the project:
    - Test frameworks (pytest, jest, etc.)
@@ -95,6 +107,8 @@ This stores the Phase in `.mpm/data/phases.json` as structured data.
 3. Write to `.mpm/docs/VERIFICATION.md`
 
 ## Step 9: Define Goals for Phase 1
+
+> Tell the user: "Goals are the key features needed to complete the Phase — described from the user's perspective."
 
 Based on the Phase definition and foundation documents:
 1. Write Goal items from the user's perspective
@@ -107,6 +121,8 @@ python3 .mpm/scripts/phase.py goal-add <phase_id> "Goal description from user pe
 3. Notify the user of the Goals
 
 ## Step 10: Create initial Tasks
+
+> Tell the user: "Finally, I'll break down the Goals into concrete tasks that agents can pick up and work on."
 
 Based on Goals, create Tasks using `/mpm-task-write` skill.
 Show the created task list to the user.
