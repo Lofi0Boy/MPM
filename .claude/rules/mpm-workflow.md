@@ -96,29 +96,33 @@ When done, fill the `result` field with the actual outcome including verificatio
 
 Also fill `memo` with a brief summary of ALL work done during the session — the task may have started as "Fix border color" but the conversation may have led to additional changes. The memo captures what actually happened, not just the original goal.
 
-The Stop hook will then ask the user for confirmation.
+### 4. Agent review
 
-### 4. User confirmation
+The Stop hook will detect that `result` is filled and instruct you to spawn the `@reviewer` subagent.
 
-Map the user's natural-language response to a status:
-- Agreement / "next" → `success` → move to `past/YYMMDD.json`
-- Requests more changes → keep in `current`, continue working
+The reviewer is an independent agent with fresh context — it reads the task, project documents, and verifies your work from scratch.
+
+- **pass** → task moves to `human-review` status
+- **fail** → reviewer returns issues → fix them in the same session → reviewer is triggered again on next stop (max 3 attempts)
+- **needs-input** → task moves to `human-review` with a question for the user
+- **modified** → task moves to `human-review` with explanation of what changed
+
+After 3 failed reviews, the task is moved to past as `needs-revision`.
+
+### 5. Human review
+
+Tasks in `human-review` status are displayed on the dashboard with the reviewer's summary and evidence (screenshots, logs). The human can:
+
+- **Approve** → task moves to past as `success`
+- **Reject** + comment → task moves to past as `rejected`
+
+Rejected tasks are picked up by the Planner agent, which creates a new corrective task in future.
+
+### 6. Postpone/discard
+
+At any point, the user can:
 - "Later" / defer → `postpone` → move to past + create new card in future
 - "Cancel" / "drop" → `discard` → move to past
-
-### 5. Postpone/modified: create a new card
-
-The original card goes to past as-is (preserving the record). Create a new card:
-- Set `parent_id` to the original task's ID
-- Write a `prompt` that includes context from the previous attempt (goal, approach, reason for deferral)
-
-## First Session — Project Initialization
-
-If `.mpm/docs/PROJECT.md` does NOT exist, this project has not been initialized. You MUST:
-1. Immediately run `/mpm-init-project` skill (do NOT wait for user to ask)
-2. Do NOT proceed with any other work until PROJECT.md is created
-
-This takes priority over any user request. The user may not know init is needed.
 
 ## Rules
 

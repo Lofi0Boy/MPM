@@ -1,59 +1,10 @@
-# MPM System
+# MPM Task System
 
-This project uses the MPM system for project planning and task management.
-
----
-
-## PPGT Hierarchy
-
-Projects are planned in a 4-level hierarchy. Higher levels are human-driven, lower levels are AI-autonomous.
-
-```
-Project ── Why the project exists, its purpose
-  └─ Phase ── Milestone as a working system unit
-       └─ Goal ── Core feature group needed to achieve a Phase
-            └─ Task ── Minimum implementation unit for developer agents
-```
-
-### Autonomy gradient
-
-| Level | Autonomy | Process |
-|-------|----------|---------|
-| **Project** | Human-driven | Listen to user's description, AI organizes and writes |
-| **Phase** | AI-proposes | Listen to user's purpose, AI proposes, user approves/corrects |
-| **Goal** | AI-driven | AI writes based on Phase, notifies user |
-| **Task** | AI-autonomous | AI creates freely based on Goals |
+This project uses the MPM task system. Tasks are tracked via files in `.mpm/data/`.
 
 ---
 
-## ADV Documents
-
-Three foundation documents that must exist before Goal/Task creation.
-Stored in `.mpm/docs/`.
-
-| Document | Purpose | Creation process |
-|----------|---------|------------------|
-| **ARCHITECTURE.md** | Engineering consistency — tech stack, patterns, conventions | AI scans codebase, proposes architecture, user approves |
-| **DESIGN.md** | UI/UX consistency — design concept, tokens, component patterns | AI asks user for design concept, organizes into rulebook |
-| **VERIFICATION.md** | Self-verification methods — how to check work without asking user | AI inspects available tools (curl, pytest, chrome, etc.), asks user for additional methods |
-
-**Layer order (never skip):**
-```
-Layer 1: Project + Phase       (PPGT)
-Layer 2: Architecture + Design + Verification  (ADV)
-Layer 3: Goal                  (PPGT)
-Layer 4: Task                  (PPGT)
-```
-
-If a project has no UI, DESIGN.md can be skipped (Planner judges, user confirms).
-
----
-
-## Task System
-
-Tasks are tracked via files in `.mpm/data/`.
-
-### File Structure
+## File Structure
 
 ```
 .mpm/data/
@@ -64,7 +15,7 @@ Tasks are tracked via files in `.mpm/data/`.
     └── YYMMDD.json         # Completed/postponed/discarded tasks
 ```
 
-### Task Schema
+## Task Schema
 
 All locations use the same schema. Fields are filled progressively:
 
@@ -85,16 +36,16 @@ All locations use the same schema. Fields are filled progressively:
 }
 ```
 
-### Session ID
+## Session ID
 
 Get the current session ID from the hook log:
 ```bash
 grep "session=" /tmp/mpm-hook.log | tail -1 | sed 's/.*session=//'
 ```
 
-### Workflow
+## Workflow
 
-#### 1. Start a task
+### 1. Start a task
 
 **From queue:** Pop from the front (index 0) of `future.json` and save to `current/{session_id}.json`.
 
@@ -119,31 +70,59 @@ Fill `goal`, `approach`, `verification`, set `status` to `active`, set `session_
 **goal = WHAT** must be true (verifiable acceptance criteria, as a checklist).
 **verification = HOW** you will check each goal item.
 
-#### 2. Do the work
+Available verification methods (prefer self-verification when possible):
+- **curl + parse**: `curl -s URL | grep/jq ...` — for API responses, served HTML content
+- **Run tests**: `pytest`, `npm test`, etc.
+- **Script execution**: run the modified code and check output
+- **File inspection**: verify generated/modified files contain expected content
+- **Headless Chrome screenshot**: `google-chrome --headless --screenshot=...` — for quick static visual checks
+- **Browser automation** (e.g. Claude in Chrome): interact with live pages if available
+- **Ask user**: ONLY when the above methods genuinely cannot verify (e.g., subjective design quality)
+
+Example — title: "Dashboard live refresh"
+- goal: "JSON changes in future/current/past reflected on dashboard within 2s without manual refresh"
+- verification: "Edit a task JSON via task.py, then curl /api/projects and confirm the change appears in response"
+
+Bad verification: "Ask user to check the UI" (when you could take a screenshot or curl the API)
+Good verification: "Take headless Chrome screenshot and visually confirm layout. curl /api/projects to verify data."
+
+### 2. Do the work
 
 Work normally. No need to update the task file mid-work.
 
-#### 3. Complete the work
+### 3. Complete the work
 
 When done, fill the `result` field with the actual outcome including verification results.
 
 Also fill `memo` with a brief summary of ALL work done during the session — the task may have started as "Fix border color" but the conversation may have led to additional changes. The memo captures what actually happened, not just the original goal.
 
-The Stop hook will then ask the user for confirmation.
+### 4. Agent review
 
-#### 4. User confirmation
+The Stop hook will detect that `result` is filled and instruct you to spawn the `@reviewer` subagent.
 
-Map the user's natural-language response to a status:
-- Agreement / "next" → `success` → move to `past/YYMMDD.json`
-- Requests more changes → keep in `current`, continue working
+The reviewer is an independent agent with fresh context — it reads the task, project documents, and verifies your work from scratch.
+
+- **pass** → task moves to `human-review` status
+- **fail** → reviewer returns issues → fix them in the same session → reviewer is triggered again on next stop (max 3 attempts)
+- **needs-input** → task moves to `human-review` with a question for the user
+- **modified** → task moves to `human-review` with explanation of what changed
+
+After 3 failed reviews, the task is moved to past as `needs-revision`.
+
+### 5. Human review
+
+Tasks in `human-review` status are displayed on the dashboard with the reviewer's summary and evidence (screenshots, logs). The human can:
+
+- **Approve** → task moves to past as `success`
+- **Reject** + comment → task moves to past as `rejected`
+
+Rejected tasks are picked up by the Planner agent, which creates a new corrective task in future.
+
+### 6. Postpone/discard
+
+At any point, the user can:
 - "Later" / defer → `postpone` → move to past + create new card in future
 - "Cancel" / "drop" → `discard` → move to past
-
-#### 5. Postpone/modified: create a new card
-
-The original card goes to past as-is (preserving the record). Create a new card:
-- Set `parent_id` to the original task's ID
-- Write a `prompt` that includes context from the previous attempt (goal, approach, reason for deferral)
 
 ## Rules
 

@@ -8,7 +8,9 @@ Usage:
     task.py complete <session_id> <status> [--memo "..."]  # current → past
     task.py add <title> <prompt>          # → future (append to back)
     task.py update <session_id> <field> <value>  # update current task field
+    task.py review <session_id> <status> --summary "..." [--evidence "..."]  # add review entry
     task.py status                        # show current state
+    task.py remove <task_id>              # remove from future queue
 """
 
 import json
@@ -75,7 +77,8 @@ def cmd_complete(session_id, status, memo=None, result=None):
         print(f"ERROR: no active task for session {session_id}")
         sys.exit(1)
 
-    valid_statuses = ("success", "fail", "postpone", "modified", "discard")
+    valid_statuses = ("success", "fail", "postpone", "modified", "discard",
+                      "needs-revision", "rejected")
     if status not in valid_statuses:
         print(f"ERROR: status must be one of {valid_statuses}")
         sys.exit(1)
@@ -109,6 +112,7 @@ def cmd_complete(session_id, status, memo=None, result=None):
             "verification": None,
             "result": None,
             "memo": None,
+            "reviews": [],
             "status": "queued",
             "created": datetime.now(_get_tz()).strftime("%y%m%d%H%M"),
             "session_id": None,
@@ -147,6 +151,7 @@ def cmd_create(session_id, title, prompt):
         "verification": None,
         "result": None,
         "memo": None,
+        "reviews": [],
         "status": "active",
         "created": datetime.now(_get_tz()).strftime("%y%m%d%H%M"),
         "session_id": session_id,
@@ -170,6 +175,7 @@ def cmd_add(title, prompt):
         "verification": None,
         "result": None,
         "memo": None,
+        "reviews": [],
         "status": "queued",
         "created": datetime.now(_get_tz()).strftime("%y%m%d%H%M"),
         "session_id": None,
@@ -180,6 +186,42 @@ def cmd_add(title, prompt):
     print(f"OK: added to future ({len(future)} total)")
     print(f"  id: {task['id']}")
     print(f"  title: {title}")
+
+
+def cmd_review(session_id, status, summary=None, evidence=None):
+    """Add a review entry to the current task."""
+    current_path = CURRENT_DIR / f"{session_id}.json"
+    if not current_path.exists():
+        print(f"ERROR: no active task for session {session_id}")
+        sys.exit(1)
+
+    valid_statuses = ("pass", "fail", "needs-input", "modified")
+    if status not in valid_statuses:
+        print(f"ERROR: review status must be one of {valid_statuses}")
+        sys.exit(1)
+
+    task = _load_json(current_path)
+    if "reviews" not in task:
+        task["reviews"] = []
+
+    review_entry = {
+        "by": "agent",
+        "status": status,
+        "summary": summary or "",
+        "evidence": evidence or "",
+        "at": datetime.now(_get_tz()).strftime("%y%m%d%H%M"),
+    }
+    task["reviews"].append(review_entry)
+
+    # Update task status based on review result
+    if status in ("pass", "needs-input", "modified"):
+        task["status"] = "human-review"
+    # fail keeps status as "active" — dev will fix and retry
+
+    _save_json(current_path, task)
+    print(f"OK: review added ({status}) for {task['title']}")
+    if status in ("pass", "needs-input", "modified"):
+        print(f"  → task moved to human-review")
 
 
 def cmd_status():
@@ -194,7 +236,10 @@ def cmd_status():
     print(f"Current: {len(current_files)} active")
     for f in current_files:
         t = _load_json(f)
-        print(f"  {f.stem}: {t.get('title', '?')} ({t.get('status', '?')})")
+        status = t.get('status', '?')
+        reviews = t.get('reviews', [])
+        review_info = f" [{len(reviews)} reviews]" if reviews else ""
+        print(f"  {f.stem}: {t.get('title', '?')} ({status}){review_info}")
 
     print()
     past_files = sorted(PAST_DIR.glob("*.json"), reverse=True) if PAST_DIR.exists() else []
@@ -259,6 +304,20 @@ def main():
         cmd_complete(sys.argv[2], sys.argv[3], memo=memo, result=result)
     elif cmd == "add" and len(sys.argv) >= 4:
         cmd_add(sys.argv[2], sys.argv[3])
+    elif cmd == "review" and len(sys.argv) >= 4:
+        summary = None
+        evidence = None
+        i = 4
+        while i < len(sys.argv):
+            if sys.argv[i] == "--summary" and i + 1 < len(sys.argv):
+                summary = sys.argv[i + 1]
+                i += 2
+            elif sys.argv[i] == "--evidence" and i + 1 < len(sys.argv):
+                evidence = sys.argv[i + 1]
+                i += 2
+            else:
+                i += 1
+        cmd_review(sys.argv[2], sys.argv[3], summary=summary, evidence=evidence)
     elif cmd == "status":
         cmd_status()
     elif cmd == "remove" and len(sys.argv) >= 3:

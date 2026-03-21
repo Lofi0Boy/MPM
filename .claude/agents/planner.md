@@ -60,6 +60,7 @@ Then check each item top-down. Fill the first gap found:
 
 | Check | How to detect | Action |
 |-------|---------------|--------|
+| Rejected tasks in past? | Read latest past file, look for `status: rejected` | Create corrective task in future based on reject comment and original task |
 | PROJECT.md exists? | Read file | Follow the mpm-init skill instructions |
 | Phase defined? | `phase.py status` shows phases | Define Phase with user |
 | ARCHITECTURE.md exists? | Read file | Scan codebase, propose, write |
