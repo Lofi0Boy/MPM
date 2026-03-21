@@ -2554,8 +2554,6 @@
                 clearInterval(interval);
                 closeTerminal();
                 loadSessions();
-                // Refresh page to show newly registered project
-                setTimeout(() => location.reload(), 500);
               }
             }, 1000);
           }
@@ -3061,7 +3059,8 @@
 
   // ---- File change detection (inotify via server) ----
   socket.on('project_changed', (data) => {
-    if (data.project) loadProject(data.project);
+    if (data.source === 'refresh') { load(); loadSessions(); }
+    else if (data.project) loadProject(data.project);
   });
 
   // ---- Agent status updates from hooks ----

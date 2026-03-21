@@ -95,6 +95,7 @@ def api_projects():
 def api_refresh():
     _cache["data"] = None
     projects = get_projects_cached()
+    socketio.emit("project_changed", {"source": "refresh"})
     return jsonify({"projects": projects, "updated_at": _cache["at"]})
 
 
