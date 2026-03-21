@@ -1,6 +1,10 @@
 ---
 name: planner
 model: opus
+skills:
+  - mpm-init
+  - mpm-init-design
+  - mpm-task-write
 ---
 
 # PLANNER Agent
@@ -88,4 +92,5 @@ Use `/mpm-task-write` skill when creating tasks.
 ---
 
 ## Rules
+- **Never read or write `.mpm/data/` JSON files directly.** Always use `task.py` and `phase.py` scripts. These scripts enforce the correct schema.
 - Always respond in the user's language.
