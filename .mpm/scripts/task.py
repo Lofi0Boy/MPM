@@ -64,6 +64,24 @@ def _get_tz():
         return timezone.utc
 
 
+
+LOCK_PATH = DATA_DIR / ".task.lock"
+
+
+def _lock():
+    """Acquire file lock for concurrent access safety."""
+    LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    lock_fd = open(LOCK_PATH, "w")
+    fcntl.flock(lock_fd, fcntl.LOCK_EX)
+    return lock_fd
+
+
+def _unlock(lock_fd):
+    """Release file lock."""
+    fcntl.flock(lock_fd, fcntl.LOCK_UN)
+    lock_fd.close()
+
+
 def _load_json(path, default=None):
     if not path.exists():
         return default if default is not None else []
