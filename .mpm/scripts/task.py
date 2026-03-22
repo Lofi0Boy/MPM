@@ -14,6 +14,8 @@ Usage:
     task.py review <session_id> <verdict> --summary "..." [--evidence "..."]  # agent review
     task.py status                        # show current state
     task.py remove <task_id>              # remove from future queue
+    task.py rejected                      # list rejected tasks in past
+    task.py recycle <task_id> <new_prompt> # rejected past → future with new prompt
 """
 
 import json
@@ -263,6 +265,75 @@ def cmd_escalate(session_id):
     print(f"OK: {task['title']} escalated to review/{task['id']}.json (human-review)")
 
 
+
+def cmd_rejected():
+    """List rejected tasks in past that haven't been recycled."""
+    past_files = sorted(PAST_DIR.glob('*.json'), reverse=True) if PAST_DIR.exists() else []
+    found = []
+    for pf in past_files:
+        tasks = _load_json(pf, [])
+        for t in tasks:
+            hr = t.get('human_review') or {}
+            if hr.get('verdict') == 'rejected':
+                found.append(t)
+    if not found:
+        print('No rejected tasks found in past.')
+        return
+    print(f'Rejected tasks: {len(found)}')
+    for t in found:
+        hr = t.get('human_review', {})
+        print(f"  {t['id']}: {t['title']}")
+        print(f"    rejected at: {hr.get('at', '?')}")
+        print(f"    comment: {hr.get('comment', '(none)')}")
+        print()
+
+
+def cmd_recycle(task_id, new_prompt):
+    """Move a rejected task from past back to future with a new prompt.
+    Preserves history in prompt, clears work fields for fresh start."""
+    # Find task in past files
+    past_files = sorted(PAST_DIR.glob('*.json'), reverse=True) if PAST_DIR.exists() else []
+    found_task = None
+    found_past_path = None
+    for pf in past_files:
+        tasks = _load_json(pf, [])
+        for i, t in enumerate(tasks):
+            if t.get('id') == task_id:
+                hr = t.get('human_review') or {}
+                if hr.get('verdict') != 'rejected':
+                    print(f"ERROR: task {task_id} is not rejected (verdict: {hr.get('verdict', '?')})")
+                    sys.exit(1)
+                found_task = t
+                found_past_path = pf
+                # Remove from past
+                tasks.pop(i)
+                if tasks:
+                    _save_json(pf, tasks)
+                else:
+                    pf.unlink()
+                break
+        if found_task:
+            break
+
+    if not found_task:
+        print(f'ERROR: rejected task {task_id} not found in past')
+        sys.exit(1)
+
+    # Create fresh task with new prompt, preserving parent_goal
+    new_task = _new_task(
+        found_task['title'],
+        new_prompt,
+        parent_goal=found_task.get('parent_goal'),
+    )
+
+    future = _load_json(FUTURE_PATH, [])
+    future.append(new_task)
+    _save_json(FUTURE_PATH, future)
+    print(f"OK: recycled {task_id} → future ({len(future)} total)")
+    print(f"  new id: {new_task['id']}")
+    print(f"  title: {new_task['title']}")
+
+
 def cmd_status():
     """Show current task system state."""
     future = _load_json(FUTURE_PATH, [])
@@ -379,6 +450,10 @@ def main():
         cmd_review(sys.argv[2], sys.argv[3], summary=summary, evidence=evidence)
     elif cmd == "escalate" and len(sys.argv) >= 3:
         cmd_escalate(sys.argv[2])
+    elif cmd == "rejected":
+        cmd_rejected()
+    elif cmd == "recycle" and len(sys.argv) >= 4:
+        cmd_recycle(sys.argv[2], sys.argv[3])
     elif cmd == "status":
         cmd_status()
     elif cmd == "remove" and len(sys.argv) >= 3:
