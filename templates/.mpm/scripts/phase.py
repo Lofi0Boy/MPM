@@ -23,6 +23,7 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 PHASES_PATH = DATA_DIR / "phases.json"
 FUTURE_PATH = DATA_DIR / "future.json"
 CURRENT_DIR = DATA_DIR / "current"
+REVIEW_DIR = DATA_DIR / "review"
 PAST_DIR = DATA_DIR / "past"
 
 
@@ -55,31 +56,44 @@ def _find_goal(data, goal_id):
 
 
 def _count_tasks_for_goal(goal_id):
-    """Count total and completed tasks for a goal across future/current/past."""
+    """Count total and completed tasks for a goal across future/current/review/past.
+    Discarded tasks are excluded from both total and done."""
     total = 0
     done = 0
 
     # Future
     if FUTURE_PATH.exists():
         for t in json.loads(FUTURE_PATH.read_text(encoding="utf-8")):
-            if t.get("goal_id") == goal_id:
+            if t.get("parent_goal") == goal_id:
                 total += 1
 
     # Current
     if CURRENT_DIR.exists():
         for f in CURRENT_DIR.glob("*.json"):
             t = json.loads(f.read_text(encoding="utf-8"))
-            if t.get("goal_id") == goal_id:
+            if t.get("parent_goal") == goal_id:
+                total += 1
+
+    # Review
+    if REVIEW_DIR.exists():
+        for f in REVIEW_DIR.glob("*.json"):
+            t = json.loads(f.read_text(encoding="utf-8"))
+            if t.get("parent_goal") == goal_id:
                 total += 1
 
     # Past
     if PAST_DIR.exists():
         for f in PAST_DIR.glob("*.json"):
             for t in json.loads(f.read_text(encoding="utf-8")):
-                if t.get("goal_id") == goal_id:
-                    total += 1
-                    if t.get("status") == "success":
-                        done += 1
+                if t.get("parent_goal") != goal_id:
+                    continue
+                hr = t.get("human_review") or {}
+                verdict = hr.get("verdict", "")
+                if verdict == "discard":
+                    continue  # excluded
+                total += 1
+                if verdict == "success":
+                    done += 1
 
     return total, done
 

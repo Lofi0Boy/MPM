@@ -1,6 +1,6 @@
 ---
 name: mpm-task-write
-description: Create well-structured tasks for developer agents with proper Outcome/Context/Verification format.
+description: Create well-structured tasks with proper Outcome/Context/Verification format.
 ---
 
 # Write Tasks
@@ -9,20 +9,36 @@ Create tasks that developer agents can execute autonomously.
 
 ---
 
-## Required Task prompt structure
+## Goal assignment
 
+Every task MUST belong to a goal. Current goals:
+
+!`python3 .mpm/scripts/phase.py status 2>/dev/null || echo "(no phases — run /mpm-init first)"`
+
+Choose the appropriate goal and include `--goal-id <id>` when calling `task.py add`.
+
+**If no suitable goal exists:** Create one first with `phase.py goal-add <phase_id> "title"`.
+
+**NEVER write .mpm/data/ JSON files directly.** Always use `task.py add`.
+
+---
+
+## Task structure
+
+**Fields set by planner (via task.py add):**
+- `title` — one-line summary
+- `prompt` — context, non-goals, and any additional instructions
+- `goal` — verifiable acceptance criteria (WHAT must be true)
+- `verification` — executable verification methods (HOW to check)
+- `parent_goal` — which phase goal this serves (via --goal-id)
+
+**Prompt content (context for dev):**
 ```
-## Outcome
-State that must be true on completion. WHAT, not HOW.
-
 ## Context
 - File paths to read
 - Existing patterns to follow
 - Design tokens/components to reference (sections in DESIGN.md)
 - Architecture conventions to follow (sections in ARCHITECTURE.md)
-
-## Verification
-Executable verification methods (curl, test, screenshot, etc.)
 
 ## Non-goals
 What is explicitly out of scope.
@@ -67,12 +83,12 @@ Available verification methods:
 
 | Method | Use case | Example |
 |--------|----------|---------|
+| Browser automation | Dynamic UI check | Claude in Chrome, etc. |
 | curl + parse | API response check | `curl -s localhost:5100/api/projects \| jq .field` |
 | Run tests | Logic verification | `pytest tests/test_auth.py` |
 | Script execution | Output check | `python3 script.py && echo OK` |
 | File inspection | Creation/modification check | Verify file contains expected content |
 | Chrome | Static visual check | `google-chrome --headless --screenshot=...` |
-| Browser automation | Dynamic UI check | Claude in Chrome, etc. |
 | User confirmation | **Last resort** | Only when above methods cannot verify |
 
 **Bad:** "Verify the feature works correctly"
@@ -83,18 +99,15 @@ Available verification methods:
 ## Command
 
 ```bash
-python3 .mpm/scripts/task.py add "task title" "## Outcome
-...
-
-## Context
-...
-
-## Verification
-...
+python3 .mpm/scripts/task.py add "task title" "## Context
+- File paths to read
+- Existing patterns to follow
 
 ## Non-goals
-..."
+..." --goal "verifiable acceptance criteria" --verification "curl/test/screenshot commands" --goal-id <goal_id>
 ```
+
+Note: `goal` and `verification` are now **separate fields**, not part of the prompt. The prompt contains Context and Non-goals only.
 
 ---
 
