@@ -19,8 +19,6 @@ Every task MUST belong to a goal. Before creating tasks:
 
 **If no suitable goal exists:** Create one first with `phase.py goal-add <phase_id> "title"`.
 
-**Progress is calculated from tasks:** total tasks per goal vs completed tasks. Plan all tasks for a goal upfront so progress is meaningful.
-
 ---
 
 ## Required Task prompt structure
