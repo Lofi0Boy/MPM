@@ -14,8 +14,8 @@ MPM orchestrates multiple AI coding agents (Claude Code) across parallel project
                │                              │
     ┌──────────▼──────────┐       ┌───────────▼───────────┐
     │   tmux sessions     │       │   .mpm/data/ (JSON)    │
-    │   (per project)     │       │   future/current/past   │
-    │   + ttyd → xterm.js │       │   phases.json           │
+    │   (per project)     │       │   future/current/      │
+    │   + ttyd → xterm.js │       │   review/past/         │
     └─────────────────────┘       └────────────────────────┘
 ```
 
@@ -45,9 +45,9 @@ MPM uses three specialized AI agents with distinct roles, controlled through a c
 
 | Agent | Role | Can do | Cannot do |
 |-------|------|--------|-----------|
-| **Planner** | Define vision, break down work, maintain docs | Read all code/docs, write `.mpm/docs/`, `task.py add`, `phase.py` | Edit source code, pop/complete tasks |
-| **Developer** | Execute tasks, write code | All tools, `task.py pop/create/update/complete` | `task.py add` (must go through planner) |
-| **Reviewer** | Independent quality verification | Read, Grep, Glob, Bash | Edit, Write, Agent (read-only) |
+| **Planner** | Define vision, break down work, maintain docs | Read all code/docs, write `.mpm/docs/`, `task.py add/status/remove`, `phase.py` | Edit source code, `task.py pop/create/update/complete/review/escalate` |
+| **Developer** | Execute tasks, write code | All tools, `task.py pop/create/update` | `task.py add` (must go through planner), `task.py complete` (human only) |
+| **Reviewer** | Independent quality verification | Read, Grep, Glob, Bash (read-only intent) | Edit, Write, Agent |
 
 ### Control Mechanisms
 
@@ -103,7 +103,7 @@ User opens Claude in project (or clicks "Start Project" on dashboard)
   → Dashboard: claude --agent planner "/mpm-init" [button click, deterministic]
   OR
   → SessionStart hook: hook-init-check.sh [deterministic]
-    → PROJECT.md missing → outputs "spawn planner" message
+    → PROJECT.md missing → outputs "run /mpm-init" message
     → Claude reads message + mpm-workflow.md rules [non-deterministic]
     → Spawns planner agent [non-deterministic]
 
@@ -145,7 +145,8 @@ planner.md body instructs [non-deterministic]:
   2. phase.py status
   3. task.py status
   4. Read latest past file
-  5. Check for rejected/needs-revision tasks in past → create corrective tasks
+  5. Check for rejected tasks in past (human_review.verdict == "rejected")
+     → create corrective tasks in future
   6. Check PPGT+ADV layers top-down → fill first gap found
 ```
 
@@ -153,14 +154,14 @@ planner.md body instructs [non-deterministic]:
 ```
 User describes feature request
   → mpm-workflow.md rules: "spawn @planner" [non-deterministic]
-  → hook-pretool-task-check.sh: blocks Edit/Write without task [deterministic]
+  → hook-pretool-task-check.sh: BLOCKS Edit/Write without task [deterministic]
   → hook-task-reminder.sh: "spawn @planner to create tasks" [deterministic message]
 
 Planner spawned:
   → Reads project docs for context [non-deterministic]
   → Breaks request into small, verifiable tasks [non-deterministic]
   → Follows mpm-task-write skill instructions [non-deterministic]
-  → task.py add for each task [deterministic script]
+  → task.py add --goal-id <id> for each task [deterministic script]
 ```
 
 #### Foundation document maintenance
@@ -180,11 +181,13 @@ planner.md body instructs [non-deterministic]:
 #### Task execution
 ```
 mpm-next skill or manual pop:
-  → task.py pop ${SESSION_ID} [deterministic]
-  → Dev reads task prompt, fills goal/approach/verification [non-deterministic]
-  → Dev works on implementation [non-deterministic]
-  → Dev fills result + memo [non-deterministic]
-  → Claude stops → Stop hook fires [deterministic]
+  → task.py pop ${SESSION_ID}              [deterministic: future → current, status: dev]
+  → Dev reads task prompt                  [non-deterministic]
+  → Dev fills goal/approach/verification   [non-deterministic]
+  → Dev works on implementation            [non-deterministic]
+  → Dev fills result + memo via task.py update [non-deterministic]
+  → result fill auto-transitions status    [deterministic: dev → agent-review]
+  → Claude stops → Stop hook fires         [deterministic]
 ```
 
 #### Hooks during development
@@ -198,14 +201,14 @@ UserPromptSubmit:
   hook-task-reminder.sh          → shows current task or "spawn @planner" [deterministic]
 
 PreToolUse (Edit|Write):
-  hook-pretool-task-check.sh     → warns if no task, says "spawn @planner" [deterministic]
+  hook-pretool-task-check.sh     → BLOCKS if no task [deterministic]
 
 PermissionRequest:
   hook-notify.sh waiting         → dashboard status update [deterministic]
 
 Stop:
   hook-notify.sh waiting         → dashboard status update [deterministic]
-  hook-review.sh                 → triggers reviewer if result exists [deterministic]
+  hook-review.sh                 → triggers reviewer if status == agent-review [deterministic]
   hook-autonext-stop.sh          → auto-next queue management [deterministic]
 ```
 
@@ -213,13 +216,12 @@ Stop:
 
 #### Trigger
 ```
-Dev fills result → Claude stops → Stop hook fires [deterministic]
+Dev fills result → status auto-transitions to agent-review [deterministic]
+  → Claude stops → Stop hook fires [deterministic]
   → hook-review.sh checks [deterministic]:
-    - result exists? YES
-    - status == human-review? check reviews array
-    - reviews empty with human-review status? → reset to active, re-trigger
-    - last review pass/needs-input/modified? → pass through
-    - review count >= 3? → task.py complete needs-revision [deterministic]
+    - status == agent-review? YES
+    - last agent_reviews verdict is pass/needs-input/modified? → pass through
+    - agent_reviews count >= 3? → task.py escalate (move to review/)
     - else: output block message "spawn @reviewer" [deterministic]
 
 Dev reads block message → spawns reviewer subagent [non-deterministic]
@@ -245,38 +247,42 @@ Reviewer subagent (fresh context, no dev history):
     - test results
 
   Verdict → task.py review [deterministic]:
-    pass        → status: human-review
-    fail        → status: active (dev fixes, retry)
-    needs-input → status: human-review (with question)
-    modified    → status: human-review (with explanation)
+    pass        → current/ → review/ (human-review), dev freed
+    fail        → stays in current/, status: dev (dev fixes, retry)
+    needs-input → current/ → review/ (with question)
+    modified    → current/ → review/ (with explanation)
 ```
 
 #### Fail loop
 ```
-Reviewer fail → result returns to dev session [deterministic]
+Reviewer fail → status returns to dev [deterministic]
   → Dev fixes issues [non-deterministic]
-  → Dev updates result [non-deterministic]
+  → Dev updates result → status auto-transitions to agent-review [deterministic]
   → Stop hook → hook-review.sh → reviewer spawn again [deterministic trigger]
-  → Max 3 agent reviews → task.py complete needs-revision [deterministic]
+  → Max 3 agent reviews → task.py escalate → review/ [deterministic]
 ```
 
-### Phase 5: Human Review
+### Phase 5: Human Review (asynchronous)
+
+Dev and human review operate on **different timelines**. After agent-review passes, the task moves to `review/` and the dev is immediately freed to pick up the next task. Human reviews at their own pace.
 
 #### Display
 ```
-Dashboard detects task with status: human-review [deterministic]
+Dashboard watches review/ directory [deterministic]
   → Shows card with: title, reviewer summary, evidence (screenshots/logs)
-  → Buttons: Approve / Reject / Discard
+  → Buttons: Approve / Reject / Postpone / Discard
 ```
 
 #### Actions
 ```
-Approve → API → task.py complete success [deterministic]
-Reject + comment → API → task.py complete rejected [deterministic]
-Discard → API → task.py complete discard [deterministic]
+Approve → API → task.py complete <task_id> success  → past [deterministic]
+Reject + comment → API → task.py complete <task_id> rejected → past [deterministic]
+Postpone → API → task.py complete <task_id> postpone → past + new card in future [deterministic]
+Discard → API → task.py complete <task_id> discard → past [deterministic]
 
 Rejected tasks:
   → Planner detects in past on next session start [non-deterministic]
+  → human_review.verdict == "rejected" + human_review.comment
   → Creates corrective task in future [non-deterministic]
 ```
 
@@ -290,7 +296,8 @@ Rejected tasks:
 Project (PROJECT.md)          — human-driven, AI organizes
   └─ Phase (phases.json)      — AI proposes, human approves
        └─ Goal (phases.json)  — AI writes, human notified
-            └─ Task (future/current/past JSON) — AI autonomous
+            └─ Task (future/current/review/past) — AI autonomous
+                  └─ parent_goal links Task → Goal for traceability
 ```
 
 ### ADV Foundation Documents
@@ -305,18 +312,39 @@ VERIFICATION.md  — self-verification methods (AI inspects + human input)
 ### Task State Machine
 
 ```
-queued (future.json)
-  → active (current/{session}.json) ─── via task.py pop
-      → [dev works, fills result]
-      → [hook-review.sh triggers reviewer]
-      → human-review ─── via task.py review pass/needs-input/modified
-          → success (past/) ─── via human approve
-          → rejected (past/) ─── via human reject → planner creates new task
-          → discard (past/) ─── via human discard
-      → needs-revision (past/) ─── via 3x reviewer fail
-      → fail (past/) ─── via autonext max iterations
-      → postpone (past/ + new card in future) ─── via user request
-      → discard (past/) ─── via user request
+future (future.json, status: future)
+  → dev (current/{session}.json) ─── via task.py pop
+      → agent-review (current/) ─── via task.py update result (auto)
+          → human-review (review/{task_id}.json) ─── via task.py review pass (dev freed)
+              → past (success) ─── via human approve (task.py complete)
+              → past (rejected) ─── via human reject → planner creates new task
+              → past (postpone) ─── via human postpone + new card in future
+              → past (discard) ─── via human discard
+          → dev (current/) ─── via task.py review fail (dev fixes, retries)
+          → human-review (review/) ─── via task.py escalate (3x fail)
+```
+
+### Task Schema
+
+All fields exist from creation. Progressively filled, never added or removed:
+
+```json
+{
+  "id": "unique_id",
+  "title": "One-line summary",
+  "prompt": "Detailed task instruction",
+  "goal": null,
+  "approach": null,
+  "verification": null,
+  "result": null,
+  "memo": null,
+  "status": "future",
+  "agent_reviews": [],
+  "human_review": null,
+  "created": "YYMMDDHHmm",
+  "session_id": null,
+  "parent_goal": null
+}
 ```
 
 ### File Ownership
@@ -324,8 +352,9 @@ queued (future.json)
 | File | Planner | Dev | Reviewer | Human (Dashboard) |
 |------|---------|-----|----------|-------------------|
 | future.json | **write** (add/remove) | read + pop | — | — |
-| current/*.json | — | **write** (create/update/complete) | **write** (task.py review) | — |
-| past/*.json | read | **write** (complete moves here) | — | **write** (approve/reject) |
+| current/*.json | — | **write** (pop/create/update) | **write** (task.py review) | — |
+| review/*.json | read | — | — | **write** (task.py complete → past) |
+| past/*.json | read | — | — | **write** (complete moves here) |
 | phases.json | **write** (phase.py) | read | read | — |
 | .mpm/docs/*.md | **write** | read | read | — |
 | .mpm/docs/tokens/* | **write** | read | read | — |
@@ -338,8 +367,10 @@ queued (future.json)
 .mpm/
 ├── data/
 │   ├── future.json              # Task queue (Planner writes, Dev pops)
-│   ├── current/                 # Active tasks (one per session)
+│   ├── current/                 # Tasks in progress (one per session)
 │   │   └── {session_id}.json
+│   ├── review/                  # Tasks awaiting human review
+│   │   └── {task_id}.json
 │   ├── past/                    # Completed tasks
 │   │   └── YYMMDD.json
 │   ├── phases.json              # Phase/Goal hierarchy
@@ -351,12 +382,12 @@ queued (future.json)
 │   ├── VERIFICATION.md          # Self-verification methods
 │   └── tokens/                  # Design token code files
 └── scripts/
-    ├── task.py                  # Task CRUD (pop, create, complete, add, review, update, status, remove)
+    ├── task.py                  # Task CRUD (pop, create, add, update, review, escalate, complete, status, remove)
     ├── phase.py                 # Phase/Goal CRUD (add, remove, activate, goal-add, goal-done, status)
     ├── hook-init-check.sh       # SessionStart: check PROJECT.md
     ├── hook-notify.sh           # Status updates to dashboard
     ├── hook-task-reminder.sh    # UserPromptSubmit: show current task
-    ├── hook-pretool-task-check.sh  # PreToolUse: warn if no task
+    ├── hook-pretool-task-check.sh  # PreToolUse: BLOCK if no task
     ├── hook-review.sh           # Stop: trigger reviewer
     └── hook-autonext-stop.sh    # Stop: auto-next queue management
 
@@ -371,7 +402,7 @@ queued (future.json)
 │   ├── mpm-next/SKILL.md        # Pop and execute next task
 │   └── mpm-autonext/SKILL.md    # Auto-process task queue
 ├── rules/
-│   └── mpm-workflow.md          # Shared rules (PPGT/ADV, task workflow, review pipeline)
+│   └── mpm-workflow.md          # Shared rules (task workflow, review pipeline)
 └── settings.json                # Hook definitions
 ```
 
@@ -382,8 +413,10 @@ queued (future.json)
 ### Deterministic (guaranteed)
 - All hook triggers (SessionStart, Stop, PreToolUse, UserPromptSubmit)
 - All script operations (task.py, phase.py)
-- Hook block/pass-through logic
-- Review iteration counting and max enforcement
+- Hook block logic (pretool-task-check BLOCKS edits without task)
+- Status auto-transition: `dev` → `agent-review` when result is filled
+- File move: current/ → review/ on agent-review pass (dev freed immediately)
+- Review iteration counting and max enforcement (3x fail → escalate to review/)
 - Task state transitions via scripts
 - Dashboard API calls
 - SocketIO real-time updates
@@ -400,8 +433,11 @@ queued (future.json)
 ### Defenses for non-deterministic failures
 | Failure | Defense |
 |---------|---------|
-| Dev doesn't spawn reviewer | hook-review.sh re-triggers on every Stop |
-| Reviewer doesn't run task.py review | hook detects empty reviews on human-review status → resets to active |
+| Dev edits without task | hook-pretool-task-check.sh BLOCKS Edit/Write [deterministic] |
+| Dev doesn't spawn reviewer | hook-review.sh re-triggers on every Stop [deterministic] |
+| Dev tries to skip review (task.py complete) | task.py enforces: only review/ → past [deterministic] |
+| Reviewer doesn't run task.py review | hook detects agent-review status persists → re-triggers [deterministic] |
 | Reviewer passes bad work | Human review catches it |
+| 3x reviewer fail | task.py escalate → review/ for human judgment [deterministic] |
 | Planner misses rejected tasks | No defense (relies on planner.md instructions) |
 | Agent ignores skill steps | No defense (inherent LLM limitation) |

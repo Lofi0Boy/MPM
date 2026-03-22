@@ -28,5 +28,5 @@ cat <<EOF
 [MPM Task] Current: "$TITLE" ($STATUS)
   Goal: $GOAL
   → If this is a continuation of the current task, keep working.
-  → If this is a NEW task, complete the current one first (fill result+memo, then task.py complete), then create a new one.
+  → If this is a NEW task, finish the current one first (fill result+memo via task.py update).
 EOF

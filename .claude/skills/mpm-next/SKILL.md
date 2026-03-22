@@ -21,9 +21,12 @@ allowed-tools: Bash(python3 *)
    ```
 5. Begin working on the task.
 
-When work is complete, fill the result:
+When work is complete, fill result and memo:
 ```bash
 python3 .mpm/scripts/task.py update ${CLAUDE_SESSION_ID} result "..."
+python3 .mpm/scripts/task.py update ${CLAUDE_SESSION_ID} memo "..."
 ```
+
+This automatically transitions status `dev` → `agent-review`. The Stop hook will trigger the reviewer.
 
 Always respond in the user's language.

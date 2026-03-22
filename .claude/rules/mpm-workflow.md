@@ -9,31 +9,84 @@ This project uses the MPM task system. Tasks are tracked via files in `.mpm/data
 ```
 .mpm/data/
 ├── future.json             # Queued tasks (front = highest priority)
-├── current/                # Active tasks (one per session)
+├── current/                # Tasks in progress (one per session)
 │   └── {session_id}.json
+├── review/                 # Tasks awaiting human review
+│   └── {task_id}.json
 └── past/
-    └── YYMMDD.json         # Completed/postponed/discarded tasks
+    └── YYMMDD.json         # Completed tasks
 ```
 
 ## Task Schema
 
-All locations use the same schema. Fields are filled progressively:
+All locations use the same schema. All fields exist from creation, progressively filled:
 
 ```json
 {
   "id": "unique_id",
   "title": "One-line summary",
   "prompt": "Detailed task instruction",
-  "goal": "Verifiable acceptance criteria — WHAT must be true (fill on current entry)",
-  "approach": "How to accomplish (fill on current entry)",
-  "verification": "HOW will you check the goal is met (fill on current entry)",
-  "result": "Actual outcome (fill on completion)",
-  "memo": "Notes (fill on completion)",
-  "status": "queued | active | success | postpone | modified | discard",
+  "goal": null,
+  "approach": null,
+  "verification": null,
+  "result": null,
+  "memo": null,
+  "status": "future",
+  "agent_reviews": [],
+  "human_review": null,
   "created": "YYMMDDHHmm",
-  "session_id": "Claude Code session ID (fill on current entry)",
-  "parent_id": "Original task ID (when re-created from postpone/modified)"
+  "session_id": null,
+  "parent_goal": null
 }
+```
+
+### Field lifecycle
+
+| Field | When filled | By whom |
+|-------|-------------|---------|
+| `id`, `title`, `prompt`, `created` | Task creation | Planner (add) or Dev (create) |
+| `parent_goal` | Task creation | Planner |
+| `session_id` | Pop | Dev (pop) |
+| `goal`, `approach`, `verification` | Dev start | Dev |
+| `result`, `memo` | Dev done | Dev |
+| `agent_reviews` | Agent review | Reviewer (appended) |
+| `human_review` | Human review | Human (dashboard) |
+
+## Status Flow
+
+```
+future → dev → agent-review → human-review → past
+```
+
+| Status | Location | Meaning |
+|--------|----------|---------|
+| `future` | future.json | Queued, waiting |
+| `dev` | current/ | Developer working |
+| `agent-review` | current/ | Reviewer verifying |
+| `human-review` | review/ | Waiting for human approval (dev is freed) |
+| `past` | past/ | Done |
+
+### Status transitions
+
+| From | To | Trigger | File move |
+|------|------|---------|-----------|
+| `future` | `dev` | `task.py pop` | future.json → current/ |
+| `dev` | `agent-review` | `task.py update result` (auto) | stays in current/ |
+| `agent-review` | `human-review` | `task.py review pass/needs-input/modified` | current/ → review/ |
+| `agent-review` | `dev` | `task.py review fail` | stays in current/ |
+| `agent-review` | `human-review` | `task.py escalate` (3x fail) | current/ → review/ |
+| `human-review` | `past` | `task.py complete` (human only) | review/ → past/ |
+
+### Review results
+
+**agent_reviews** — array, appended each review cycle:
+```json
+{"verdict": "pass|fail|needs-input|modified", "summary": "...", "evidence": "...", "at": "..."}
+```
+
+**human_review** — object, filled once at final judgment:
+```json
+{"verdict": "success|rejected|postpone|discard", "comment": "...", "at": "..."}
 ```
 
 ## Session ID
@@ -47,7 +100,7 @@ grep "session=" /tmp/mpm-hook.log | tail -1 | sed 's/.*session=//'
 
 ### 1. Start a task
 
-**From queue:** Pop from the front (index 0) of `future.json` and save to `current/{session_id}.json`.
+**From queue:** Pop from the front (index 0) of `future.json`.
 
 **From conversation:** If there is no current task and the user requests work that involves code changes, **do NOT create a task yourself**. Instead, spawn the `@planner` subagent to analyze the request and create properly scoped tasks.
 
@@ -66,7 +119,7 @@ After planner finishes, pop the first task:
 python3 .mpm/scripts/task.py pop ${CLAUDE_SESSION_ID}
 ```
 
-Then fill `goal`, `approach`, `verification`, set `status` to `active`.
+Then fill `goal`, `approach`, `verification` via `task.py update`.
 
 **goal = WHAT** must be true (verifiable acceptance criteria, as a checklist).
 **verification = HOW** you will check each goal item.
@@ -80,56 +133,55 @@ Available verification methods (prefer self-verification when possible):
 - **Browser automation** (e.g. Claude in Chrome): interact with live pages if available
 - **Ask user**: ONLY when the above methods genuinely cannot verify (e.g., subjective design quality)
 
-Example — title: "Dashboard live refresh"
-- goal: "JSON changes in future/current/past reflected on dashboard within 2s without manual refresh"
-- verification: "Edit a task JSON via task.py, then curl /api/projects and confirm the change appears in response"
-
-Bad verification: "Ask user to check the UI" (when you could take a screenshot or curl the API)
-Good verification: "Take headless Chrome screenshot and visually confirm layout. curl /api/projects to verify data."
-
 ### 2. Do the work
 
 Work normally. No need to update the task file mid-work.
 
-### 3. Complete the work
+### 3. Fill result
 
-When done, fill the `result` field with the actual outcome including verification results.
+When done, fill `result` and `memo` via `task.py update`:
+```bash
+python3 .mpm/scripts/task.py update ${CLAUDE_SESSION_ID} result "..."
+python3 .mpm/scripts/task.py update ${CLAUDE_SESSION_ID} memo "..."
+```
 
-Also fill `memo` with a brief summary of ALL work done during the session — the task may have started as "Fix border color" but the conversation may have led to additional changes. The memo captures what actually happened, not just the original goal.
+**Filling `result` automatically transitions status: `dev` → `agent-review`.**
+
+`memo` captures ALL work done during the session — not just the original goal.
 
 ### 4. Agent review
 
-The Stop hook will detect that `result` is filled and instruct you to spawn the `@reviewer` subagent.
+The Stop hook detects `agent-review` status and instructs you to spawn the `@reviewer` subagent.
 
 The reviewer is an independent agent with fresh context — it reads the task, project documents, and verifies your work from scratch.
 
-- **pass** → task moves to `human-review` status
-- **fail** → reviewer returns issues → fix them in the same session → reviewer is triggered again on next stop (max 3 attempts)
-- **needs-input** → task moves to `human-review` with a question for the user
-- **modified** → task moves to `human-review` with explanation of what changed
+- **pass** → task moves to `review/` (human-review), dev is freed
+- **fail** → status back to `dev` (fix issues, update result to re-trigger)
+- **needs-input** → task moves to `review/` with question for human
+- **modified** → task moves to `review/` with explanation
 
-After 3 failed reviews, the task is moved to past as `needs-revision`.
+After 3 failed reviews, the task is escalated to `review/` via `task.py escalate`.
 
 ### 5. Human review
 
-Tasks in `human-review` status are displayed on the dashboard with the reviewer's summary and evidence (screenshots, logs). The human can:
+Tasks in `review/` are displayed on the dashboard with the reviewer's summary and evidence. The human reviews asynchronously — dev does not wait. The human can:
 
-- **Approve** → task moves to past as `success`
-- **Reject** + comment → task moves to past as `rejected`
+- **Approve** → `task.py complete <task_id> success` → past
+- **Reject** + comment → `task.py complete <task_id> rejected` → past
 
 Rejected tasks are picked up by the Planner agent, which creates a new corrective task in future.
 
 ### 6. Postpone/discard
 
-At any point, the user can:
-- "Later" / defer → `postpone` → move to past + create new card in future
-- "Cancel" / "drop" → `discard` → move to past
+Only from `review/` (human-review status), the human can:
+- **Postpone** → `task.py complete <task_id> postpone` → past + new card in future
+- **Discard** → `task.py complete <task_id> discard` → past
 
 ## Rules
 
-- **All task JSON operations must go through `task.py`** — never read/write `.mpm/data/` JSON files directly. Available commands: `pop`, `create`, `complete`, `add`, `update`, `status`.
+- **All task JSON operations must go through `task.py`** — never read/write `.mpm/data/` JSON files directly.
+- **Dev never calls `task.py complete`** — only humans (via dashboard) move tasks to past.
 - Always pop from the **front** (index 0) of future.json.
 - Append new tasks to the **back** of future.json.
-- Move to past **immediately** when a result is confirmed — not on a date boundary.
 - Only one task per session in current.
 - Always respond to the user in their language.
