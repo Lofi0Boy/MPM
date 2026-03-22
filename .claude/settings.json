@@ -4,8 +4,14 @@
       {
         "matcher": "",
         "hooks": [
-          { "type": "command", "command": ".mpm/scripts/hook-notify.sh active" },
-          { "type": "command", "command": ".mpm/scripts/hook-init-check.sh" }
+          {
+            "type": "command",
+            "command": ".mpm/scripts/hook-notify.sh active"
+          },
+          {
+            "type": "command",
+            "command": ".mpm/scripts/hook-init-check.sh"
+          }
         ]
       }
     ],
@@ -13,8 +19,14 @@
       {
         "matcher": "",
         "hooks": [
-          { "type": "command", "command": ".mpm/scripts/hook-notify.sh working" },
-          { "type": "command", "command": ".mpm/scripts/hook-task-reminder.sh" }
+          {
+            "type": "command",
+            "command": ".mpm/scripts/hook-notify.sh working"
+          },
+          {
+            "type": "command",
+            "command": ".mpm/scripts/hook-task-reminder.sh"
+          }
         ]
       }
     ],
@@ -22,7 +34,10 @@
       {
         "matcher": "Edit|Write",
         "hooks": [
-          { "type": "command", "command": ".mpm/scripts/hook-pretool-task-check.sh" }
+          {
+            "type": "command",
+            "command": ".mpm/scripts/hook-pretool-task-check.sh"
+          }
         ]
       }
     ],
@@ -30,7 +45,10 @@
       {
         "matcher": "",
         "hooks": [
-          { "type": "command", "command": ".mpm/scripts/hook-notify.sh waiting" }
+          {
+            "type": "command",
+            "command": ".mpm/scripts/hook-notify.sh waiting"
+          }
         ]
       }
     ],
@@ -38,9 +56,29 @@
       {
         "matcher": "",
         "hooks": [
-          { "type": "command", "command": ".mpm/scripts/hook-notify.sh waiting" },
-          { "type": "command", "command": ".mpm/scripts/hook-review.sh" },
-          { "type": "command", "command": ".mpm/scripts/hook-autonext-stop.sh" }
+          {
+            "type": "command",
+            "command": ".mpm/scripts/hook-notify.sh waiting"
+          },
+          {
+            "type": "command",
+            "command": ".mpm/scripts/hook-review.sh"
+          },
+          {
+            "type": "command",
+            "command": ".mpm/scripts/hook-autonext-stop.sh"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "planner",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".mpm/scripts/hook-planner-start.sh"
+          }
         ]
       }
     ]
