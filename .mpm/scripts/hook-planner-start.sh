@@ -1,6 +1,6 @@
 #!/bin/bash
-# SubagentStart hook (matcher: planner)
-# Deterministically injects project context + first gap directive into planner session.
+# SubagentStart hook (matcher: planner) + SessionStart router target
+# Deterministically injects project context + gap directive into planner session.
 
 set -euo pipefail
 
@@ -46,56 +46,28 @@ echo "### Task Status"
 python3 "$SCRIPTS_DIR/task.py" status 2>/dev/null || echo "(no tasks)"
 echo ""
 
-# --- 3. Detect first gap and output directive ---
+# --- 3. Detect ALL gaps and output directive ---
 echo "---"
 echo "## [MPM] Planner Directive"
 echo ""
 
-# Check 1: PROJECT.md
-if [[ ! -f "$DOCS_DIR/PROJECT.md" ]]; then
-  echo "**GAP: PROJECT.md is missing.**"
-  echo "→ Follow the /mpm-init skill to initialize the project."
-  exit 0
-fi
+GAPS=""
 
-# Check 2: Phase defined?
+# Foundation docs
+[[ ! -f "$DOCS_DIR/PROJECT.md" ]] && GAPS="${GAPS}PROJECT.md, "
+[[ ! -f "$DOCS_DIR/ARCHITECTURE.md" ]] && GAPS="${GAPS}ARCHITECTURE.md, "
+[[ ! -f "$DOCS_DIR/DESIGN.md" ]] && GAPS="${GAPS}DESIGN.md, "
+[[ ! -f "$DOCS_DIR/VERIFICATION.md" ]] && GAPS="${GAPS}VERIFICATION.md, "
+
+# Phase
 PHASE_COUNT=$(python3 "$SCRIPTS_DIR/phase.py" status 2>/dev/null | grep -c "Phase:" || echo "0")
-if [[ "$PHASE_COUNT" -eq 0 ]]; then
-  echo "**GAP: No phases defined.**"
-  echo "→ Define Phase 1 with the user using \`phase.py add\`."
-  exit 0
-fi
+[[ "$PHASE_COUNT" -eq 0 ]] && GAPS="${GAPS}Phase, "
 
-# Check 3: ARCHITECTURE.md
-if [[ ! -f "$DOCS_DIR/ARCHITECTURE.md" ]]; then
-  echo "**GAP: ARCHITECTURE.md is missing.**"
-  echo "→ Scan the codebase, propose architecture patterns, and write ARCHITECTURE.md."
-  exit 0
-fi
+# Goals
+GOAL_COUNT=$(python3 "$SCRIPTS_DIR/phase.py" status 2>/dev/null | grep -c "\[" || echo "0")
+[[ "$GOAL_COUNT" -eq 0 ]] && GAPS="${GAPS}Goals, "
 
-# Check 4: DESIGN.md
-if [[ ! -f "$DOCS_DIR/DESIGN.md" ]]; then
-  echo "**GAP: DESIGN.md is missing.**"
-  echo "→ Follow the /mpm-init-design skill to set up the design system. Skip if no UI."
-  exit 0
-fi
-
-# Check 5: VERIFICATION.md
-if [[ ! -f "$DOCS_DIR/VERIFICATION.md" ]]; then
-  echo "**GAP: VERIFICATION.md is missing.**"
-  echo "→ Inspect available verification tools, ask the user, and write VERIFICATION.md."
-  exit 0
-fi
-
-# Check 6: Goals defined?
-GOAL_COUNT=$(python3 "$SCRIPTS_DIR/phase.py" status 2>/dev/null | grep -c "Goal:" || echo "0")
-if [[ "$GOAL_COUNT" -eq 0 ]]; then
-  echo "**GAP: No goals defined for the active phase.**"
-  echo "→ Write goals from the user's perspective using \`phase.py goal-add\`."
-  exit 0
-fi
-
-# Check 7: Tasks sufficient?
+# Tasks
 FUTURE_COUNT=$(python3 -c "
 import json
 from pathlib import Path
@@ -103,13 +75,12 @@ f = Path('$CWD/.mpm/data/future.json')
 tasks = json.loads(f.read_text()) if f.exists() else []
 print(len(tasks))
 " 2>/dev/null || echo "0")
-if [[ "$FUTURE_COUNT" -eq 0 ]]; then
-  echo "**GAP: No tasks in future queue.**"
-  echo "→ Create tasks following the /mpm-task-write skill. Include --goal-id."
-  exit 0
-fi
+[[ "$FUTURE_COUNT" -eq 0 ]] && GAPS="${GAPS}Tasks, "
 
-# Check 8: Rejected tasks?
+# Strip trailing comma+space
+GAPS="${GAPS%, }"
+
+# Rejected tasks (separate from init)
 REJECTED_COUNT=$(python3 -c "
 import json
 from pathlib import Path
@@ -123,10 +94,19 @@ if past_dir.exists():
                 count += 1
 print(count)
 " 2>/dev/null || echo "0")
-if [[ "$REJECTED_COUNT" -gt 0 ]]; then
-  echo "**GAP: $REJECTED_COUNT rejected task(s) found in past.**"
-  echo "→ Follow the /mpm-recycle skill to rewrite and return them to future."
-  exit 0
+
+if [[ -n "$GAPS" ]]; then
+  echo "**Foundation gaps: ${GAPS}**"
+  echo "→ Run /mpm-init to fill missing items. Guide the user through each gap."
+  echo ""
 fi
 
-echo "**All foundation in place.** Proceed with normal planning — review goals, create tasks as needed."
+if [[ "$REJECTED_COUNT" -gt 0 ]]; then
+  echo "**$REJECTED_COUNT rejected task(s) in past.**"
+  echo "→ Run /mpm-recycle to rewrite and return them to future."
+  echo ""
+fi
+
+if [[ -z "$GAPS" ]] && [[ "$REJECTED_COUNT" -eq 0 ]]; then
+  echo "**All foundation in place.** Proceed with normal planning — review goals, create tasks as needed."
+fi
