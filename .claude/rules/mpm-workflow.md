@@ -92,10 +92,7 @@ future → dev → agent-review → human-review → past
 
 ## Session ID
 
-Get the current session ID from the hook log:
-```bash
-grep "session=" /tmp/mpm-hook.log | tail -1 | sed 's/.*session=//'
-```
+Use `${CLAUDE_SESSION_ID}` — this is automatically available in all Claude Code sessions and skills. Do NOT parse log files.
 
 ## Workflow
 
