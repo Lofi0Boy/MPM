@@ -18,6 +18,7 @@ Usage:
     task.py recycle <task_id> <new_prompt> # rejected past → future with new prompt
 """
 
+import fcntl
 import json
 import sys
 import uuid
@@ -95,23 +96,27 @@ def _move_to_review(task, current_path):
 
 def cmd_pop(session_id):
     """Pop first task from future → current/{session_id}.json (status: dev)"""
-    future = _load_json(FUTURE_PATH, [])
-    if not future:
-        print("ERROR: future queue is empty.")
-        sys.exit(1)
+    lock = _lock()
+    try:
+        future = _load_json(FUTURE_PATH, [])
+        if not future:
+            print("ERROR: future queue is empty.")
+            sys.exit(1)
 
-    current_path = CURRENT_DIR / f"{session_id}.json"
-    if current_path.exists():
-        existing = _load_json(current_path)
-        print(f"ERROR: session already has task: {existing.get('title', '?')}")
-        sys.exit(1)
+        current_path = CURRENT_DIR / f"{session_id}.json"
+        if current_path.exists():
+            existing = _load_json(current_path)
+            print(f"ERROR: session already has task: {existing.get('title', '?')}")
+            sys.exit(1)
 
-    task = future.pop(0)
-    task["status"] = "dev"
-    task["session_id"] = session_id
+        task = future.pop(0)
+        task["status"] = "dev"
+        task["session_id"] = session_id
 
-    _save_json(current_path, task)
-    _save_json(FUTURE_PATH, future)
+        _save_json(current_path, task)
+        _save_json(FUTURE_PATH, future)
+    finally:
+        _unlock(lock)
     print(f"OK: popped → current/{session_id}.json")
     print(f"  title: {task['title']}")
     print(f"  prompt: {task['prompt']}")
@@ -190,10 +195,14 @@ def cmd_create(session_id, title, prompt):
 
 def cmd_add(title, prompt, goal_id=None):
     """Add a new task to the back of future queue."""
-    future = _load_json(FUTURE_PATH, [])
-    task = _new_task(title, prompt, parent_goal=goal_id)
-    future.append(task)
-    _save_json(FUTURE_PATH, future)
+    lock = _lock()
+    try:
+        future = _load_json(FUTURE_PATH, [])
+        task = _new_task(title, prompt, parent_goal=goal_id)
+        future.append(task)
+        _save_json(FUTURE_PATH, future)
+    finally:
+        _unlock(lock)
     print(f"OK: added to future ({len(future)} total)")
     print(f"  id: {task['id']}")
     print(f"  title: {title}")
@@ -279,44 +288,48 @@ def cmd_rejected():
 def cmd_recycle(task_id, new_prompt):
     """Move a rejected task from past back to future with a new prompt.
     Preserves history in prompt, clears work fields for fresh start."""
-    # Find task in past files
-    past_files = sorted(PAST_DIR.glob('*.json'), reverse=True) if PAST_DIR.exists() else []
-    found_task = None
-    found_past_path = None
-    for pf in past_files:
-        tasks = _load_json(pf, [])
-        for i, t in enumerate(tasks):
-            if t.get('id') == task_id:
-                hr = t.get('human_review') or {}
-                if hr.get('verdict') != 'rejected':
-                    print(f"ERROR: task {task_id} is not rejected (verdict: {hr.get('verdict', '?')})")
-                    sys.exit(1)
-                found_task = t
-                found_past_path = pf
-                # Remove from past
-                tasks.pop(i)
-                if tasks:
-                    _save_json(pf, tasks)
-                else:
-                    pf.unlink()
+    lock = _lock()
+    try:
+        # Find task in past files
+        past_files = sorted(PAST_DIR.glob('*.json'), reverse=True) if PAST_DIR.exists() else []
+        found_task = None
+        found_past_path = None
+        for pf in past_files:
+            tasks = _load_json(pf, [])
+            for i, t in enumerate(tasks):
+                if t.get('id') == task_id:
+                    hr = t.get('human_review') or {}
+                    if hr.get('verdict') != 'rejected':
+                        print(f"ERROR: task {task_id} is not rejected (verdict: {hr.get('verdict', '?')})")
+                        sys.exit(1)
+                    found_task = t
+                    found_past_path = pf
+                    # Remove from past
+                    tasks.pop(i)
+                    if tasks:
+                        _save_json(pf, tasks)
+                    else:
+                        pf.unlink()
+                    break
+            if found_task:
                 break
-        if found_task:
-            break
 
-    if not found_task:
-        print(f'ERROR: rejected task {task_id} not found in past')
-        sys.exit(1)
+        if not found_task:
+            print(f'ERROR: rejected task {task_id} not found in past')
+            sys.exit(1)
 
-    # Create fresh task with new prompt, preserving parent_goal
-    new_task = _new_task(
-        found_task['title'],
-        new_prompt,
-        parent_goal=found_task.get('parent_goal'),
-    )
+        # Create fresh task with new prompt, preserving parent_goal
+        new_task = _new_task(
+            found_task['title'],
+            new_prompt,
+            parent_goal=found_task.get('parent_goal'),
+        )
 
-    future = _load_json(FUTURE_PATH, [])
-    future.append(new_task)
-    _save_json(FUTURE_PATH, future)
+        future = _load_json(FUTURE_PATH, [])
+        future.append(new_task)
+        _save_json(FUTURE_PATH, future)
+    finally:
+        _unlock(lock)
     print(f"OK: recycled {task_id} → future ({len(future)} total)")
     print(f"  new id: {new_task['id']}")
     print(f"  title: {new_task['title']}")
@@ -357,13 +370,17 @@ def cmd_status():
 
 def cmd_remove(task_id):
     """Remove a task from future queue by ID."""
-    future = _load_json(FUTURE_PATH, [])
-    before = len(future)
-    future = [t for t in future if t.get("id") != task_id]
-    if len(future) == before:
-        print(f"ERROR: task {task_id} not found in future queue")
-        sys.exit(1)
-    _save_json(FUTURE_PATH, future)
+    lock = _lock()
+    try:
+        future = _load_json(FUTURE_PATH, [])
+        before = len(future)
+        future = [t for t in future if t.get("id") != task_id]
+        if len(future) == before:
+            print(f"ERROR: task {task_id} not found in future queue")
+            sys.exit(1)
+        _save_json(FUTURE_PATH, future)
+    finally:
+        _unlock(lock)
     print(f"OK: removed {task_id} from future ({len(future)} remaining)")
 
 
