@@ -270,14 +270,13 @@ Dev and human review operate on **different timelines**. After agent-review pass
 ```
 Dashboard watches review/ directory [deterministic]
   → Shows card with: title, reviewer summary, evidence (screenshots/logs)
-  → Buttons: Approve / Reject / Postpone / Discard
+  → Buttons: Approve / Reject / Discard
 ```
 
 #### Actions
 ```
 Approve → API → task.py complete <task_id> success  → past [deterministic]
 Reject + comment → API → task.py complete <task_id> rejected → past [deterministic]
-Postpone → API → task.py complete <task_id> postpone → past + new card in future [deterministic]
 Discard → API → task.py complete <task_id> discard → past [deterministic]
 
 Rejected tasks:
@@ -318,7 +317,6 @@ future (future.json, status: future)
           → human-review (review/{task_id}.json) ─── via task.py review pass (dev freed)
               → past (success) ─── via human approve (task.py complete)
               → past (rejected) ─── via human reject → planner creates new task
-              → past (postpone) ─── via human postpone + new card in future
               → past (discard) ─── via human discard
           → dev (current/) ─── via task.py review fail (dev fixes, retries)
           → human-review (review/) ─── via task.py escalate (3x fail)

@@ -153,18 +153,6 @@ def cmd_complete(task_id, verdict, comment=None):
     review_path.unlink()
     print(f"OK: {task['title']} → past/{date_str}.json ({verdict})")
 
-    # If postpone, create new card in future
-    if verdict == "postpone":
-        new_task = _new_task(
-            task["title"],
-            f"[Retry] {task['prompt']}\n\nPrevious result: {task.get('result', 'N/A')}",
-            parent_goal=task.get("parent_goal"),
-        )
-        future = _load_json(FUTURE_PATH, [])
-        future.append(new_task)
-        _save_json(FUTURE_PATH, future)
-        print(f"  + new card added to future: {new_task['id']}")
-
 
 def cmd_create(session_id, title, prompt):
     """Create a task directly in current (skip future queue)."""

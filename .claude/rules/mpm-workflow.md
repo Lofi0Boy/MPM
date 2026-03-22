@@ -86,7 +86,7 @@ future → dev → agent-review → human-review → past
 
 **human_review** — object, filled once at final judgment:
 ```json
-{"verdict": "success|rejected|postpone|discard", "comment": "...", "at": "..."}
+{"verdict": "success|rejected|discard", "comment": "...", "at": "..."}
 ```
 
 ## Session ID
@@ -174,7 +174,6 @@ Rejected tasks are picked up by the Planner agent, which creates a new correctiv
 ### 6. Postpone/discard
 
 Only from `review/` (human-review status), the human can:
-- **Postpone** → `task.py complete <task_id> postpone` → past + new card in future
 - **Discard** → `task.py complete <task_id> discard` → past
 
 ## Rules

@@ -9,6 +9,20 @@ Create tasks that developer agents can execute autonomously.
 
 ---
 
+## Goal assignment
+
+Every task MUST belong to a goal. Before creating tasks:
+
+1. Run `phase.py status` to see current goals and their IDs
+2. Decide which goal each task serves
+3. Include `--goal-id <id>` when calling `task.py add`
+
+**If no suitable goal exists:** Create one first with `phase.py goal-add <phase_id> "title"`.
+
+**Progress is calculated from tasks:** total tasks per goal vs completed tasks. Plan all tasks for a goal upfront so progress is meaningful.
+
+---
+
 ## Required Task prompt structure
 
 ```
@@ -93,7 +107,7 @@ python3 .mpm/scripts/task.py add "task title" "## Outcome
 ...
 
 ## Non-goals
-..."
+..." --goal-id <goal_id>
 ```
 
 ---
