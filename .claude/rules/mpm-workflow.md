@@ -168,8 +168,9 @@ Tasks in `review/` are displayed on the dashboard with the reviewer's summary an
 
 - **Approve** → `task.py complete <task_id> success` → past
 - **Reject** + comment → `task.py complete <task_id> rejected` → past
+- **Discard** → `task.py complete <task_id> discard` → past (excluded from progress)
 
-Rejected tasks are picked up by the Planner agent, which creates a new corrective task in future.
+Rejected tasks are picked up by the Planner agent via /mpm-recycle, which rewrites the prompt and returns them to future.
 
 ### 6. Postpone/discard
 
