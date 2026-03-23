@@ -84,7 +84,21 @@ else
 fi
 echo ""
 
-# --- 5. Other project files the reviewer may want to read ---
+# --- 5. Browse tool discovery ---
+B=""
+[ -x "$CWD/.claude/skills/gstack/browse/dist/browse" ] && B="$CWD/.claude/skills/gstack/browse/dist/browse"
+[ -z "$B" ] && [ -x "$HOME/.claude/skills/gstack/browse/dist/browse" ] && B="$HOME/.claude/skills/gstack/browse/dist/browse"
+[ -z "$B" ] && [ -x "$HOME/.local/share/gstack/browse/dist/browse" ] && B="$HOME/.local/share/gstack/browse/dist/browse"
+[ -z "$B" ] && command -v gstack-browse >/dev/null 2>&1 && B="$(command -v gstack-browse)"
+
+if [[ -n "$B" ]]; then
+  echo "### Browse Tool"
+  echo "Binary: $B"
+  echo "Use as: \$B goto <url>, \$B screenshot <path>, \$B click <selector>, \$B console --errors"
+  echo ""
+fi
+
+# --- 6. Other project files the reviewer may want to read ---
 echo "### Additional files you may want to read"
 echo "These are project-specific files that may be relevant to your review:"
 find "$CWD" -name "*.md" -not -path "*/.mpm/*" -not -path "*/.claude/*" -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/.venv/*" -not -path "*/venv/*" 2>/dev/null | head -10

@@ -379,7 +379,7 @@ def init(path):
     )
 
     # Create required empty directories
-    for d in [".mpm/data/current", ".mpm/data/past", ".mpm/docs"]:
+    for d in [".mpm/data/current", ".mpm/data/past", ".mpm/data/review", ".mpm/docs"]:
         (project_dir / d).mkdir(parents=True, exist_ok=True)
 
     # Make scripts executable
@@ -441,7 +441,25 @@ def disable(path):
         project_dir / ".claude" / "skills" / "mpm-init",
         project_dir / ".claude" / "skills" / "mpm-init-design",
         project_dir / ".claude" / "skills" / "mpm-task-write",
+        project_dir / ".claude" / "skills" / "mpm-office-hour",
+        project_dir / ".claude" / "skills" / "mpm-plan-ceo-review",
+        project_dir / ".claude" / "skills" / "mpm-plan-eng-review",
+        project_dir / ".claude" / "skills" / "mpm-plan-design-review",
+        project_dir / ".claude" / "skills" / "mpm-autoplan",
+        project_dir / ".claude" / "skills" / "mpm-review-functional",
+        project_dir / ".claude" / "skills" / "mpm-review-code",
+        project_dir / ".claude" / "skills" / "mpm-review-ux",
+        project_dir / ".claude" / "skills" / "mpm-review-design",
+        project_dir / ".claude" / "skills" / "mpm-recycle",
         project_dir / ".claude" / "skills" / "mpm-init-project",  # legacy
+        # ui-ux-pro-max skills
+        project_dir / ".claude" / "skills" / "ui-ux-pro-max",
+        project_dir / ".claude" / "skills" / "design-system",
+        project_dir / ".claude" / "skills" / "ui-styling",
+        project_dir / ".claude" / "skills" / "brand",
+        project_dir / ".claude" / "skills" / "design",
+        project_dir / ".claude" / "skills" / "banner-design",
+        project_dir / ".claude" / "skills" / "slides",
         project_dir / ".claude" / "agents",
     ]:
         if d.exists():

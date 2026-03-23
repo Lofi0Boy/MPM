@@ -33,6 +33,7 @@ from mpm.dashboard.projects import (
     get_all_projects, _load_config as load_projects_config,
     load_future, save_future,
     load_current_tasks, save_current_task, delete_current_task,
+    load_review_tasks,
     load_past, append_past,
     load_project_md,
 )
@@ -312,15 +313,17 @@ def api_v2_add_future(project_name):
         "id": uuid.uuid4().hex[:12],
         "title": data.get("title", ""),
         "prompt": data.get("prompt", ""),
-        "goal": None,
+        "goal": data.get("goal"),
         "approach": None,
-        "verification": None,
+        "verification": data.get("verification"),
         "result": None,
         "memo": None,
-        "status": "queued",
+        "status": "future",
+        "agent_reviews": [],
+        "human_review": None,
         "created": datetime.now(_get_tz()).strftime("%y%m%d%H%M"),
         "session_id": None,
-        "parent_id": data.get("parent_id"),
+        "parent_goal": data.get("parent_goal"),
     }
     tasks.append(task)  # append to back (lowest priority)
     save_future(d, tasks)
@@ -375,6 +378,72 @@ def api_v2_get_current(project_name):
     if not d:
         return jsonify({"error": "Project not found"}), 404
     return jsonify(load_current_tasks(d))
+
+
+@app.route("/api/v2/review/<project_name>")
+def api_v2_get_review(project_name):
+    d = _project_dir(project_name)
+    if not d:
+        return jsonify({"error": "Project not found"}), 404
+    return jsonify(load_review_tasks(d))
+
+
+@app.route("/api/v2/review/<project_name>/<task_id>/complete", methods=["POST"])
+def api_v2_complete_review(project_name, task_id):
+    """Complete a human review via task.py complete subprocess."""
+    import subprocess
+    d = _project_dir(project_name)
+    if not d:
+        return jsonify({"error": "Project not found"}), 404
+    data = request.get_json(force=True) if request.is_json else {}
+    verdict = data.get("verdict", "")
+    comment = data.get("comment", "")
+    if verdict not in ("success", "rejected", "discard"):
+        return jsonify({"error": "verdict must be success, rejected, or discard"}), 400
+    cmd = ["python3", str(d / ".mpm" / "scripts" / "task.py"), "complete", task_id, verdict]
+    if comment:
+        cmd += ["--comment", comment]
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(d))
+    if result.returncode != 0:
+        return jsonify({"error": result.stderr.strip() or result.stdout.strip()}), 400
+    _cache["data"] = None
+    return jsonify({"ok": True})
+
+
+@app.route("/api/v2/reviews/<project_name>/<task_id>/screenshots")
+def api_v2_review_screenshots(project_name, task_id):
+    """List screenshot files for a review task."""
+    d = _project_dir(project_name)
+    if not d:
+        return jsonify({"error": "Project not found"}), 404
+    if ".." in task_id:
+        return jsonify({"error": "Invalid task_id"}), 400
+    reviews_dir = d / ".mpm" / "data" / "reviews"
+    if not reviews_dir.exists():
+        return jsonify({"files": []})
+    files = sorted(
+        f.name for f in reviews_dir.iterdir()
+        if f.name.startswith(task_id) and f.suffix.lower() in (".png", ".jpg", ".jpeg")
+    )
+    return jsonify({"files": files})
+
+
+@app.route("/api/v2/reviews/<project_name>/<filename>")
+def api_v2_review_file(project_name, filename):
+    """Serve a screenshot file from .mpm/data/reviews/."""
+    from flask import send_from_directory
+    d = _project_dir(project_name)
+    if not d:
+        return jsonify({"error": "Project not found"}), 404
+    if ".." in filename:
+        return jsonify({"error": "Invalid filename"}), 400
+    ext = Path(filename).suffix.lower()
+    if ext not in (".png", ".jpg", ".jpeg"):
+        return jsonify({"error": "Only image files allowed"}), 400
+    reviews_dir = d / ".mpm" / "data" / "reviews"
+    if not reviews_dir.exists() or not (reviews_dir / filename).exists():
+        return jsonify({"error": "File not found"}), 404
+    return send_from_directory(str(reviews_dir), filename)
 
 
 @app.route("/api/v2/past/<project_name>")
@@ -470,14 +539,16 @@ def api_create_session():
     data = request.get_json(force=True)
     project = data.get("project")
     cli_command = data.get("cli_command")
+    role = data.get("role", "dev")
     if not project:
         return jsonify({"error": "project required"}), 400
     try:
-        info = create_session(project, cli_command)
+        info = create_session(project, cli_command, role=role)
         return jsonify({
             "project": info.project,
             "tmux_name": info.tmux_name,
             "state": info.state.value,
+            "role": info.role,
         }), 201
     except (ValueError, RuntimeError) as e:
         return jsonify({"error": str(e)}), 400
@@ -487,9 +558,10 @@ def api_create_session():
 def api_send_keys(project):
     data = request.get_json(force=True)
     text = data.get("text", "")
+    role = data.get("role", "dev")
     if not text:
         return jsonify({"error": "text required"}), 400
-    ok = send_keys(project, text)
+    ok = send_keys(project, text, role=role)
     if not ok:
         return jsonify({"error": "Failed to send — session may not exist"}), 404
     return jsonify({"ok": True})
@@ -498,13 +570,15 @@ def api_send_keys(project):
 @app.route("/api/sessions/<project>/output")
 def api_capture_output(project):
     lines = request.args.get("lines", 200, type=int)
-    output = capture_pane(project, lines)
+    role = request.args.get("role", "dev")
+    output = capture_pane(project, lines, role=role)
     return jsonify({"output": output})
 
 
 @app.route("/api/sessions/<project>", methods=["DELETE"])
 def api_kill_session(project):
-    ok = kill_session(project)
+    role = request.args.get("role", "dev")
+    ok = kill_session(project, role=role)
     if not ok:
         return jsonify({"error": "Session not found"}), 404
     return jsonify({"ok": True})
