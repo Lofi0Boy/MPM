@@ -6,9 +6,6 @@ dist/
 build/
 node_modules/
 
-# Runtime data (not for distribution)
-.mpm/data/
-.mpm/docs/
-.mpm/gstack/
-.mpm/scripts/
-.claude/
+# Runtime data (not for distribution — this repo's own MPM state)
+/.mpm/
+/.claude/
