@@ -65,6 +65,29 @@ def _get_tz():
 
 
 
+def _append_feedback(task, verdict, comment=None):
+    """Append human review result to FEEDBACK.md."""
+    DOCS_DIR.mkdir(parents=True, exist_ok=True)
+    date_str = datetime.now(_get_tz()).strftime("%Y-%m-%d %H:%M")
+    title = task.get("title", "?")
+    goal = task.get("goal", "")
+    agent_summary = ""
+    reviews = task.get("agent_reviews", [])
+    if reviews:
+        last = reviews[-1]
+        agent_summary = f"- Agent review: {last.get('summary', '')}"
+
+    entry = f"""
+### [{verdict.upper()}] {title}
+- Date: {date_str}
+- Goal: {goal}
+{f'- Comment: {comment}' if comment else ''}
+{agent_summary}
+"""
+    with open(FEEDBACK_PATH, "a", encoding="utf-8") as f:
+        f.write(entry)
+
+
 LOCK_PATH = DATA_DIR / ".task.lock"
 
 
@@ -160,25 +183,29 @@ def cmd_complete(task_id, verdict, comment=None):
         print(f"ERROR: verdict must be one of {valid_verdicts}")
         sys.exit(1)
 
-    task["human_review"] = {
-        "verdict": verdict,
-        "comment": comment or "",
-        "at": datetime.now(_get_tz()).strftime("%y%m%d%H%M"),
-    }
-    task["status"] = "past"
+    lock = _lock()
+    try:
+        task["human_review"] = {
+            "verdict": verdict,
+            "comment": comment or "",
+            "at": datetime.now(_get_tz()).strftime("%y%m%d%H%M"),
+        }
+        task["status"] = "past"
 
-    # Append to today's past file
-    date_str = datetime.now(_get_tz()).strftime("%y%m%d")
-    past_path = PAST_DIR / f"{date_str}.json"
-    past = _load_json(past_path, [])
-    past.append(task)
-    _save_json(past_path, past)
+        # Append to today's past file
+        date_str = datetime.now(_get_tz()).strftime("%y%m%d")
+        past_path = PAST_DIR / f"{date_str}.json"
+        past = _load_json(past_path, [])
+        past.append(task)
+        _save_json(past_path, past)
 
-    # Append to FEEDBACK.md
-    _append_feedback(task, verdict, comment)
+        # Append to FEEDBACK.md
+        _append_feedback(task, verdict, comment)
 
-    # Remove from review
-    review_path.unlink()
+        # Remove from review
+        review_path.unlink()
+    finally:
+        _unlock(lock)
     print(f"OK: {task['title']} → past/{date_str}.json ({verdict})")
 
 
@@ -345,12 +372,17 @@ def cmd_recycle(task_id, new_prompt):
             print(f'ERROR: rejected task {task_id} not found in past')
             sys.exit(1)
 
-        # Create fresh task with new prompt, preserving parent_goal
+        # Create fresh task with new prompt, preserving parent_goal + goal + verification
         new_task = _new_task(
             found_task['title'],
             new_prompt,
             parent_goal=found_task.get('parent_goal'),
         )
+        # Preserve planner-set fields from the original task
+        if found_task.get('goal'):
+            new_task['goal'] = found_task['goal']
+        if found_task.get('verification'):
+            new_task['verification'] = found_task['verification']
 
         future = _load_json(FUTURE_PATH, [])
         future.append(new_task)

@@ -66,6 +66,19 @@ def load_current_tasks(project_dir: Path) -> list:
     return tasks
 
 
+def load_review_tasks(project_dir: Path) -> list:
+    """Load all tasks awaiting human review from review/ directory."""
+    review_dir = _data_path(project_dir) / "review"
+    if not review_dir.exists():
+        return []
+    tasks = []
+    for f in review_dir.glob("*.json"):
+        task = _load_json(f)
+        if task:
+            tasks.append(task)
+    return tasks
+
+
 def save_current_task(project_dir: Path, session_id: str, data: dict) -> None:
     _save_json(_data_path(project_dir) / "current" / f"{session_id}.json", data)
 
@@ -259,6 +272,7 @@ class ProjectData:
     description: str = ""
     current_tasks: list[dict] = field(default_factory=list)
     future_tasks: list[dict] = field(default_factory=list)
+    review_tasks: list[dict] = field(default_factory=list)
     past_tasks: list[dict] = field(default_factory=list)
     phases: list[dict] = field(default_factory=list)
     project_md: str = ""
@@ -271,6 +285,7 @@ class ProjectData:
             "description": self.description,
             "current_tasks": self.current_tasks,
             "future_tasks": self.future_tasks,
+            "review_tasks": self.review_tasks,
             "past_tasks": self.past_tasks,
             "phases": self.phases,
             "project_md": self.project_md,
@@ -283,19 +298,27 @@ class ProjectData:
 # ---------------------------------------------------------------------------
 
 def _count_tasks_for_goal(project_dir: Path, goal_id: str) -> tuple[int, int]:
-    """Count (total, done) tasks for a goal across future/current/past."""
+    """Count (total, done) tasks for a goal across future/current/review/past."""
     total = 0
     done = 0
     for t in load_future(project_dir):
-        if t.get("goal_id") == goal_id:
+        if t.get("parent_goal") == goal_id:
             total += 1
     for t in load_current_tasks(project_dir):
-        if t.get("goal_id") == goal_id:
+        if t.get("parent_goal") == goal_id:
             total += 1
+    # review/ tasks count as in-progress
+    review_dir = _data_path(project_dir) / "review"
+    if review_dir.exists():
+        for f in review_dir.glob("*.json"):
+            t = _load_json(f)
+            if isinstance(t, dict) and t.get("parent_goal") == goal_id:
+                total += 1
     for t in load_past(project_dir):
-        if t.get("goal_id") == goal_id:
+        if t.get("parent_goal") == goal_id:
             total += 1
-            if t.get("status") == "success":
+            hr = t.get("human_review") or {}
+            if hr.get("verdict") == "success":
                 done += 1
     return total, done
 
@@ -332,6 +355,7 @@ def load_project(project_dir: Path) -> ProjectData:
     # Task system v2
     current_tasks = load_current_tasks(project_dir)
     future_tasks = load_future(project_dir)
+    review_tasks = load_review_tasks(project_dir)
     past_tasks = load_past(project_dir)
     phases_data = load_phases(project_dir)
     project_md = load_project_md(project_dir)
@@ -342,6 +366,7 @@ def load_project(project_dir: Path) -> ProjectData:
         description=description,
         current_tasks=current_tasks,
         future_tasks=future_tasks,
+        review_tasks=review_tasks,
         past_tasks=past_tasks,
         phases=phases_data,
         project_md=project_md,

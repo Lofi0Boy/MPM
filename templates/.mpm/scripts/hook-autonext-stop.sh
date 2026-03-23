@@ -111,7 +111,8 @@ print(len(tasks))
 
   # Feed next task
   PROMPT="Pop the next task: python3 .mpm/scripts/task.py pop $SID
-Then fill goal/approach/verification, do the work, self-verify, and fill result+memo.
+The task already has goal and verification set by the planner. Read them carefully.
+Fill approach, do the work, self-verify using the task's verification methods, then fill result+memo.
 Use available verification methods (headless Chrome screenshots, curl, tests, file inspection).
 Only ask the user when self-verification is genuinely impossible.
 Max $MAX_ITER iterations per task."
