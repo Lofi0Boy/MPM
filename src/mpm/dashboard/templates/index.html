@@ -551,9 +551,16 @@
     .current-task-card.task-waiting {
       border-color: #e65100;
     }
+    .current-task-card.task-reviewing {
+      animation: border-pulse-purple 3s ease-in-out infinite;
+    }
     @keyframes border-pulse-green {
       0%, 100% { border-color: #4caf50; }
       50% { border-color: #c8e6c9; }
+    }
+    @keyframes border-pulse-purple {
+      0%, 100% { border-color: var(--task-review); }
+      50% { border-color: var(--task-review-bg); }
     }
     /* Idle (no current task) card — compact */
     .current-task-card.task-idle {
@@ -682,6 +689,101 @@
     .status-badge.s-modified { background: #f3e5f5; color: #7b1fa2; }
     .status-badge.s-partial  { background: #fff3e0; color: #e65100; }
     .status-badge.s-queued   { background: #f5f5f5; color: #888; }
+    .status-badge.s-dev      { background: var(--task-dev-bg); color: var(--task-dev); }
+    .status-badge.s-agent-review { background: var(--task-review-bg); color: var(--task-review); }
+
+    .review-card {
+      border-left: 3px solid var(--task-review);
+      cursor: pointer;
+    }
+    .review-card:hover { background: var(--task-review-bg); }
+    .review-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .review-card-title {
+      font-size: 11px;
+      font-weight: 500;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .review-field { margin-bottom: 12px; }
+    .review-field-label {
+      font-size: var(--section-label-size);
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--section-label);
+      margin-bottom: 3px;
+    }
+    .review-field-value {
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+    .review-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+    .review-nav-btn {
+      background: none; border: 1px solid var(--border); border-radius: 4px;
+      padding: 2px 8px; cursor: pointer; font-size: 14px; color: var(--text);
+    }
+    .review-nav-btn:disabled { opacity: 0.3; cursor: default; }
+    .review-nav-btn:hover:not(:disabled) { background: var(--hover); }
+    .review-actions-bar {
+      display: flex; gap: 8px; align-items: flex-start;
+    }
+    .review-btn {
+      padding: 6px 16px; border: none; border-radius: 5px; font-size: 12px;
+      font-weight: 600; cursor: pointer;
+    }
+    .review-btn.approve { background: #2e7d32; color: #fff; }
+    .review-btn.approve:hover { background: #1b5e20; }
+    .review-btn.discard { background: #888; color: #fff; }
+    .review-btn.discard:hover { background: #666; }
+    .review-btn.reject { background: #c62828; color: #fff; }
+    .review-btn.reject:hover { background: #b71c1c; }
+    .review-reject-area { margin-top: 8px; display: none; }
+    .review-reject-area.visible { display: block; }
+    .review-reject-textarea {
+      width: 100%; min-height: 60px; border: 1px solid var(--border);
+      border-radius: 5px; padding: 8px; font-size: 12px; resize: vertical;
+      font-family: inherit;
+    }
+    .goal-tasks-list {
+      padding-left: 16px;
+      margin: 2px 0 4px;
+    }
+    .goal-task-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      line-height: 1.6;
+      color: #666;
+    }
+    .goal-task-title {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .goal-task-item .status-badge {
+      font-size: 8px;
+      padding: 1px 4px;
+    }
+    .review-reject-send {
+      margin-top: 6px; padding: 5px 14px; border: none; border-radius: 4px;
+      background: #c62828; color: #fff; font-size: 11px; font-weight: 600; cursor: pointer;
+    }
 
     .status-goal {
       font-size: 11px;
@@ -888,6 +990,15 @@
       line-height: 1.5;
     }
 
+    .section-label {
+      font-size: var(--section-label-size);
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--section-label);
+      margin: 8px 0 4px;
+    }
+
     /* ---- Terminal active project dimming ---- */
     #board-wrapper.term-dimmed::after {
       content: '';
@@ -1060,6 +1171,32 @@
     .term-slot + .term-slot {
       border-left: 2px solid #444;
     }
+    .mode-right .term-xterm {
+      flex-direction: column;
+    }
+    .mode-right .term-slot + .term-slot {
+      border-left: none;
+      border-top: none;
+    }
+    .term-slot-divider {
+      flex-shrink: 0;
+      background: #444;
+      z-index: 5;
+    }
+    /* Bottom mode: vertical divider */
+    .term-xterm > .term-slot-divider {
+      width: 4px;
+      cursor: ew-resize;
+    }
+    /* Right mode: horizontal divider */
+    .mode-right .term-xterm > .term-slot-divider {
+      width: auto;
+      height: 4px;
+      cursor: ns-resize;
+    }
+    .term-slot-divider:hover {
+      background: #666;
+    }
     .term-slot-header {
       flex-shrink: 0;
       height: 26px;
@@ -1079,6 +1216,7 @@
       border-radius: 3px;
     }
     .term-slot-label.dev { color: #5cb85c; background: rgba(92,184,92,0.12); }
+    .term-slot-label.planner { color: #5bc0de; background: rgba(91,192,222,0.12); }
     .term-slot-status {
       font-size: 10px;
       color: #888;
@@ -1248,9 +1386,8 @@
     <span class="term-project-name" id="term-project-name">—</span>
     <span class="term-status" id="term-status-text"></span>
     <div class="term-header-actions">
-      <button class="term-hdr-btn" id="term-start-btn" onclick="startCli()">Start CLI</button>
-      <button class="term-hdr-btn" id="term-kill-btn" onclick="killCurrentSession()">Kill CLI</button>
-<button class="term-hdr-btn" onclick="popOutTerminal()" title="Open in new window">&#8599;</button>
+      <button class="term-hdr-btn" id="term-start-btn" onclick="startCli()" style="display:none">Start CLI</button>
+      <button class="term-hdr-btn" id="term-kill-btn" onclick="killCurrentSession()" style="display:none">Kill CLI</button>
       <button class="term-hdr-btn" onclick="toggleTermMode()" title="Toggle bottom/right">&#8596;</button>
       <button class="term-hdr-btn" onclick="closeTerminal()">Close</button>
     </div>
@@ -1290,6 +1427,21 @@
     <div class="modal-body">
       <div id="modal-content" class="md-content"></div>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="review-dialog" onclick="if(event.target===this)closeReviewDialog()">
+  <div class="modal-box" style="width:600px; height:auto; max-height:80vh;" onclick="event.stopPropagation()">
+    <div class="modal-header" style="padding:12px 16px; gap:8px;">
+      <span class="modal-project" id="review-project-name"></span>
+      <span id="review-indicator" style="font-size:11px; color:#888;"></span>
+      <button class="review-nav-btn" onclick="navReview(-1)" id="review-prev" title="Previous">&#8592;</button>
+      <button class="review-nav-btn" onclick="navReview(1)" id="review-next" title="Next">&#8594;</button>
+      <span style="flex:1;"></span>
+      <button class="modal-close" onclick="closeReviewDialog()">&#10005;</button>
+    </div>
+    <div style="padding:16px; overflow-y:auto; flex:1;" id="review-body"></div>
+    <div id="review-actions" style="padding:12px 16px; border-top:1px solid var(--border);"></div>
   </div>
 </div>
 
@@ -1495,22 +1647,24 @@
 
     const cache = JSON.parse(localStorage.getItem('agentStatus') || '{}');
     const cached = cache[p.name];
-    const defaultState = cached === 'working' ? 'task-working' : cached === 'waiting' ? 'task-waiting' : '';
+    let defaultState = cached === 'working' ? 'task-working' : cached === 'waiting' ? 'task-waiting' : cached === 'reviewing' ? 'task-reviewing' : '';
+    if (t && t.status === 'agent-review' && !defaultState) defaultState = 'task-reviewing';
 
     if (!t) {
       // No active task — compact idle card, still clickable for terminal
       const label = alive ? 'Chatting away...' : 'Start Session';
-      return `<div class="card current-task-card task-idle ${defaultState}" data-term-project="${esc(p.name)}"
-        onclick="onTermCardClick(event, '${esc(p.name)}', this)">
+      return `<div class="card current-task-card task-idle ${defaultState}" data-term-project="${esc(p.name)}">
         <span class="ct-idle-label">${label}</span>
       </div>`;
     }
 
     // Active task — show current task card
-    return `<div class="card current-task-card ${defaultState}" data-term-project="${esc(p.name)}"
-      onclick="onTermCardClick(event, '${esc(p.name)}', this)">
+    const statusLabel = t.status === 'agent-review' ? 'REVIEWING' : 'DEV';
+    const statusClass = t.status === 'agent-review' ? 's-agent-review' : 's-dev';
+    return `<div class="card current-task-card ${defaultState}" data-term-project="${esc(p.name)}">
       <div class="ct-header">
         <span class="ct-title">${esc(t.title || 'Working...')}</span>
+        <span class="status-badge ${statusClass}">${statusLabel}</span>
       </div>
       ${t.goal ? `<div class="ct-goal">${esc(t.goal)}</div>` : ''}
       <div class="ct-verification">${t.verification ? esc(t.verification) : ''}</div>
@@ -1524,6 +1678,159 @@
     const d = parseInt(ts.slice(4,6),10);
     return `${mo[m]} ${d} \u00b7 ${ts.slice(6,8)}:${ts.slice(8,10)}`;
   }
+
+  function renderReviewCard(projectName, task) {
+    const reviews = task.agent_reviews || [];
+    const lastReview = reviews.length > 0 ? reviews[reviews.length - 1] : null;
+    const verdictBadge = lastReview
+      ? `<span class="status-badge s-${lastReview.verdict}">${esc(lastReview.verdict)}</span>`
+      : '';
+    return `<div class="card review-card" onclick="openReviewDialog('${esc(projectName)}', '${esc(task.id)}')">
+      <div class="review-card-header">
+        <span class="review-card-title">${esc(task.title || 'Review task')}</span>
+        ${verdictBadge}
+      </div>
+    </div>`;
+  }
+
+  let _reviewTasks = [];
+  let _reviewProject = '';
+  let _reviewIdx = 0;
+
+  function openReviewDialog(projectName, taskId) {
+    _reviewProject = projectName;
+    const project = (lastProjects || []).find(p => p.name === projectName);
+    _reviewTasks = project ? (project.review_tasks || []) : [];
+    _reviewIdx = _reviewTasks.findIndex(t => t.id === taskId);
+    if (_reviewIdx < 0) _reviewIdx = 0;
+    _renderReviewDialog();
+    document.getElementById('review-dialog').classList.remove('hidden');
+  }
+
+  function closeReviewDialog() {
+    document.getElementById('review-dialog').classList.add('hidden');
+  }
+
+  function _renderReviewDialog() {
+    const t = _reviewTasks[_reviewIdx];
+    if (!t) return;
+    document.getElementById('review-project-name').textContent = _reviewProject;
+    document.getElementById('review-indicator').textContent = `Review ${_reviewIdx + 1} of ${_reviewTasks.length}`;
+
+    const field = (label, value) => value
+      ? `<div class="review-field"><div class="review-field-label">${label}</div><div class="review-field-value">${esc(value)}</div></div>`
+      : '';
+
+    const reviews = t.agent_reviews || [];
+    const last = reviews.length > 0 ? reviews[reviews.length - 1] : null;
+    const summaryHtml = last ? field('REVIEWER SUMMARY', last.summary) : '';
+    const evidenceTextHtml = last && last.evidence ? field('EVIDENCE NOTE', last.evidence) : '';
+
+    document.getElementById('review-body').innerHTML = `
+      <div class="review-title">${esc(t.title || 'Untitled')}</div>
+      ${field('GOAL', t.goal)}
+      <div class="review-field" id="review-screenshots"></div>
+      ${summaryHtml}
+      ${evidenceTextHtml}
+      ${field('VERIFICATION', t.verification)}
+      ${field('APPROACH', t.approach)}
+      ${field('RESULT', t.result)}
+      ${field('MEMO', t.memo)}
+    `;
+
+    // Load screenshots
+    _loadReviewScreenshots(t.id);
+
+    // Nav buttons
+    document.getElementById('review-prev').disabled = _reviewIdx <= 0;
+    document.getElementById('review-next').disabled = _reviewIdx >= _reviewTasks.length - 1;
+
+    // Action buttons
+    document.getElementById('review-actions').innerHTML = `
+      <div class="review-actions-bar">
+        <button class="review-btn approve" onclick="completeReview('success')">Approve</button>
+        <button class="review-btn discard" onclick="completeReview('discard')">Discard</button>
+        <button class="review-btn reject" onclick="toggleRejectArea()">Reject</button>
+      </div>
+      <div class="review-reject-area" id="review-reject-area">
+        <textarea class="review-reject-textarea" id="review-reject-comment" placeholder="Rejection reason..."></textarea>
+        <button class="review-reject-send" onclick="submitReject()">Send Rejection</button>
+      </div>
+    `;
+  }
+
+  async function _loadReviewScreenshots(taskId) {
+    const container = document.getElementById('review-screenshots');
+    if (!container) return;
+    try {
+      const data = await api(`/api/v2/reviews/${encodeURIComponent(_reviewProject)}/${encodeURIComponent(taskId)}/screenshots`);
+      const files = data.files || [];
+      if (files.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+      container.innerHTML = `
+        <div class="review-field-label">EVIDENCE</div>
+        ${files.map(f => `<a href="/api/v2/reviews/${encodeURIComponent(_reviewProject)}/${encodeURIComponent(f)}" target="_blank" style="display:block;margin:4px 0;">
+          <img src="/api/v2/reviews/${encodeURIComponent(_reviewProject)}/${encodeURIComponent(f)}" style="max-width:100%;border-radius:4px;border:1px solid var(--border);cursor:pointer;" />
+        </a>`).join('')}
+      `;
+    } catch(e) {
+      container.innerHTML = '';
+    }
+  }
+
+  function navReview(dir) {
+    const next = _reviewIdx + dir;
+    if (next < 0 || next >= _reviewTasks.length) return;
+    _reviewIdx = next;
+    _renderReviewDialog();
+  }
+
+  function toggleRejectArea() {
+    const el = document.getElementById('review-reject-area');
+    el.classList.toggle('visible');
+    if (el.classList.contains('visible')) {
+      document.getElementById('review-reject-comment').focus();
+    }
+  }
+
+  async function completeReview(verdict, comment) {
+    const t = _reviewTasks[_reviewIdx];
+    if (!t) return;
+    const body = { verdict };
+    if (comment) body.comment = comment;
+    try {
+      await api(`/api/v2/review/${_reviewProject}/${t.id}/complete`, { method: 'POST', body });
+    } catch(e) { console.error('completeReview error', e); return; }
+    // Remove from local list
+    _reviewTasks.splice(_reviewIdx, 1);
+    // Refresh board
+    _cache_data = null;
+    load();
+    if (_reviewTasks.length === 0) {
+      closeReviewDialog();
+    } else {
+      if (_reviewIdx >= _reviewTasks.length) _reviewIdx = _reviewTasks.length - 1;
+      _renderReviewDialog();
+    }
+  }
+
+  function submitReject() {
+    const comment = (document.getElementById('review-reject-comment').value || '').trim();
+    if (!comment) { document.getElementById('review-reject-comment').focus(); return; }
+    completeReview('rejected', comment);
+  }
+
+  // Keyboard navigation for review dialog
+  document.addEventListener('keydown', (e) => {
+    const dialog = document.getElementById('review-dialog');
+    if (dialog.classList.contains('hidden')) return;
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+    if (e.key === 'ArrowLeft') { navReview(-1); e.preventDefault(); }
+    if (e.key === 'ArrowRight') { navReview(1); e.preventDefault(); }
+    if (e.key === 'Escape') { closeReviewDialog(); e.preventDefault(); }
+  });
 
   function renderHistoryCard(entry) {
     const statusClass = entry.status ? `s-${entry.status}` : '';
@@ -1565,12 +1872,29 @@
       ? `<div style="font-size:11px;color:#555;margin-top:4px;line-height:1.3;">${esc(active.description)}</div>`
       : '';
     const goals = (active.goals || []).filter(g => g.title !== 'Misc' || g.task_total > 0);
+    const allTasks = [
+      ...(p.future_tasks || []),
+      ...(p.current_tasks || []),
+      ...(p.review_tasks || []),
+      ...(p.past_tasks || []),
+    ];
     const goalsHtml = goals.length > 0
       ? `<div style="margin-top:3px;">${goals.map(g => {
           const check = g.done ? '&#10003; ' : '';
           const taskInfo = g.task_total > 0 ? ` (${g.task_done}/${g.task_total})` : '';
-          const color = g.done ? '#999' : '#555';
-          return `<div style="font-size:11px;color:${color};line-height:1.5;padding-left:10px;text-indent:-10px;">· ${check}${esc(g.title)}${taskInfo}</div>`;
+          const doneStyle = g.done ? 'text-decoration:line-through;color:var(--muted);' : 'color:#555;';
+          const goalTasks = allTasks.filter(t => t.parent_goal === g.id);
+          const tasksListHtml = goalTasks.length > 0
+            ? `<div class="goal-tasks-list" style="display:none;">${goalTasks.map(t => {
+                const st = t.status || '';
+                const stClass = st ? `s-${st}` : '';
+                return `<div class="goal-task-item"><span class="goal-task-title">${esc(t.title || 'Untitled')}</span><span class="status-badge ${stClass}">${esc(st)}</span></div>`;
+              }).join('')}</div>`
+            : '';
+          return `<div class="goal-row" onclick="event.stopPropagation(); this.querySelector('.goal-tasks-list')?.style.display === 'none' ? this.querySelector('.goal-tasks-list').style.display = '' : this.querySelector('.goal-tasks-list') && (this.querySelector('.goal-tasks-list').style.display = 'none'); requestAnimationFrame(fixStreamlines);" style="cursor:${goalTasks.length > 0 ? 'pointer' : 'default'};">
+            <div style="font-size:11px;${doneStyle}line-height:1.5;padding-left:10px;text-indent:-10px;">· ${check}${esc(g.title)}${taskInfo}</div>
+            ${tasksListHtml}
+          </div>`;
         }).join('')}</div>`
       : '';
     return `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #eee;">
@@ -1782,7 +2106,7 @@
     const phaseHeaderHtml = renderPhaseHeader(p);
     const label = `
       <div class="col-label" data-project="${esc(p.name)}"
-           onclick="openDocs('${esc(p.name)}', '.mpm/docs/PROJECT.md')">
+           onclick="focusProject('${esc(p.name)}')">
         <div class="col-name-row">
           <span class="col-name">${esc(displayName)}</span>
           <button class="docs-btn" onclick="event.stopPropagation(); openDocs('${esc(p.name)}')">
@@ -1811,13 +2135,24 @@
       return `<div class="col" data-project="${esc(p.name)}">${label}<div class="stream">${startArea}</div></div>`;
     }
 
+    const sectionLabel = (text) => `<div class="section-label">${text}</div>`;
+
     const historyCards = [...(p.past_tasks || [])].reverse().map(renderHistoryCard);
+    const reviewCards = (p.review_tasks || []);
     const sessionCard = renderSessionCard(p);
-    const cards = [
+    const parts = [
+      sectionLabel('QUEUE'),
       renderNextTasks(p),
+      sectionLabel('CURRENT'),
       sessionCard,
-      ...historyCards,
-    ].join('');
+    ];
+    if (reviewCards.length > 0) {
+      parts.push(sectionLabel('REVIEW'));
+      parts.push(...reviewCards.map(t => renderReviewCard(p.name, t)));
+    }
+    parts.push(sectionLabel('HISTORY'));
+    parts.push(...historyCards);
+    const cards = parts.join('');
 
     return `<div class="col" data-project="${esc(p.name)}">${label}<div class="stream">${cards}</div></div>`;
   }
@@ -2090,7 +2425,8 @@
   async function load() {
     try {
       const data = await api('/api/projects');
-      render(data.projects);
+      lastProjects = data.projects || [];
+      render(lastProjects);
       const d = new Date(data.updated_at * 1000);
       statusEl.textContent = d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     } catch(e) { statusEl.textContent = 'Error'; }
@@ -2104,14 +2440,23 @@
       if (col.querySelector('.nt-editing, .nt-add-input:focus')) return;
 
       const data = await api('/api/projects');
-      const p = (data.projects || []).find(p => p.name === projectName);
+      lastProjects = data.projects || [];
+      const p = lastProjects.find(p => p.name === projectName);
       if (!p) return;
       const streamEl = col.querySelector('.stream');
       if (!streamEl) return;
+      const sectionLabel = (text) => `<div class="section-label">${text}</div>`;
       const historyCards = [...(p.past_tasks || [])].reverse().map(renderHistoryCard);
+      const reviewCards = (p.review_tasks || []);
       const sessionCard = renderSessionCard(p);
-      const cards = [renderNextTasks(p), sessionCard, ...historyCards].join('');
-      streamEl.innerHTML = cards;
+      const parts = [sectionLabel('QUEUE'), renderNextTasks(p), sectionLabel('CURRENT'), sessionCard];
+      if (reviewCards.length > 0) {
+        parts.push(sectionLabel('REVIEW'));
+        parts.push(...reviewCards.map(t => renderReviewCard(p.name, t)));
+      }
+      parts.push(sectionLabel('HISTORY'));
+      parts.push(...historyCards);
+      streamEl.innerHTML = parts.join('');
       updateStatusDots();
       requestAnimationFrame(fixStreamlines);
     } catch(e) { /* silent */ }
@@ -2242,6 +2587,7 @@
   const socket = io();
   let termProject = null;
   let sessionsData = [];
+  let lastProjects = [];
 
   const termPanel = document.getElementById('terminal-panel');
   const termXtermEl = document.getElementById('term-xterm');
@@ -2258,75 +2604,39 @@
   }
 
   function openTerminal(project, anchorEl) {
-    // If pop-out window is currently open, focus it
-    if (isPopOut(project)) {
-      window.open('', `ttyd-${project}`);
-      return;
-    }
-
-    const session = sessionsData.find(s => s.project === project);
-    if (!session || session.state === 'off') {
-      openCliDialog(project, anchorEl);
-      return;
-    }
-
-    // Last used as popout? Reopen as popout
-    const prefersPopout = localStorage.getItem('termPopOut_' + project) === 'true';
-
-    // Need ttyd port — request one
-    if (!session.ttyd_port) {
-      api('/api/sessions', { method: 'POST', body: { project } }).then(() => loadSessions().then(() => {
-        const s = sessionsData.find(x => x.project === project);
-        if (s && s.ttyd_port) {
-          if (prefersPopout) openPopOut(project);
-          else showTerminal(project, s.ttyd_port);
-        }
-      }));
-      return;
-    }
-
-    if (prefersPopout) {
-      openPopOut(project);
-      return;
-    }
-
-    showTerminal(project, session.ttyd_port);
+    // Use dev session port as primary (may be null if no session)
+    const devSession = sessionsData.find(s => s.project === project && s.role === 'dev');
+    const ttydPort = devSession?.ttyd_port || null;
+    showTerminal(project, ttydPort);
   }
 
-  // ---- xterm.js direct connection (cached per project) ----
-  const termCache = {}; // project -> { term, fitAddon, ws, container, resizeObs }
+  // ---- xterm.js direct connection (cached per project-role) ----
+  const termCache = {}; // "project-role" -> { term, fitAddon, ws, container, resizeObs }
 
-  function getOrCreateTerm(project, ttydPort) {
-    if (termCache[project]) return termCache[project];
+  function getOrCreateTerm(project, ttydPort, role = 'dev') {
+    const cacheKey = `${project}-${role}`;
+    if (termCache[cacheKey]) return termCache[cacheKey];
 
     // Create slot with sub-header and xterm area
     const slot = document.createElement('div');
     slot.className = 'term-slot';
-    slot.dataset.termSlot = 'dev';
+    slot.dataset.termSlot = role;
     slot.dataset.termProject = project;
     slot.style.display = 'none';
 
     const isMinimal = project === '_mpm-init';
+    const labelClass = role === 'planner' ? 'planner' : 'dev';
+    const labelText = isMinimal ? 'INIT' : role.toUpperCase();
     const slotHeader = document.createElement('div');
     slotHeader.className = 'term-slot-header';
-    if (isMinimal) {
-      slotHeader.innerHTML = `
-        <span class="term-slot-label dev">INIT</span>
-        <span class="term-slot-status" data-slot-status="${project}"></span>
-        <div class="term-slot-actions">
-          <button class="term-hdr-btn" onclick="killSlotSession('${project}')" data-slot-kill="${project}">Kill</button>
-        </div>
-      `;
-    } else {
-      slotHeader.innerHTML = `
-        <span class="term-slot-label dev">DEV</span>
-        <span class="term-slot-status" data-slot-status="${project}"></span>
-        <div class="term-slot-actions">
-          <button class="term-hdr-btn" onclick="startCliForSlot('${project}')" data-slot-start="${project}">Start</button>
-          <button class="term-hdr-btn" onclick="killSlotSession('${project}')" data-slot-kill="${project}" style="display:none">Kill</button>
-        </div>
-      `;
-    }
+    slotHeader.innerHTML = `
+      <span class="term-slot-label ${labelClass}">${labelText}</span>
+      <span class="term-slot-status" data-slot-status="${cacheKey}"></span>
+      <div class="term-slot-actions">
+        <button class="term-hdr-btn" onclick="startCliForSlot('${project}', '${role}')" data-slot-start="${cacheKey}" ${isMinimal ? 'style="display:none"' : ''}>Start</button>
+        <button class="term-hdr-btn" onclick="killSlotSession('${project}', '${role}')" data-slot-kill="${cacheKey}" style="display:none">Kill</button>
+      </div>
+    `;
     slot.appendChild(slotHeader);
 
     const container = document.createElement('div');
@@ -2438,19 +2748,78 @@
     resizeObs.observe(container);
     entry.resizeObs = resizeObs;
 
-    termCache[project] = entry;
+    termCache[cacheKey] = entry;
 
-    // Connect WebSocket
-    connectTtydWs(entry, ttydPort, project);
+    // Connect WebSocket or show inline CLI start UI
+    if (ttydPort) {
+      connectTtydWs(entry, ttydPort, `${project}-${role}`);
+    } else {
+      _showInlineCli(entry, project, role);
+    }
 
     return entry;
   }
 
+  function _showInlineCli(entry, project, role) {
+    const suffix = role === 'planner' ? ' --agent planner' : '';
+    const suffixHtml = suffix ? `<span style="color:#666;font-size:11px;">${esc(suffix)}</span>` : '';
+    const cmdsHtml = savedCliCommands.map(cmd =>
+      `<div style="margin:3px 0;">
+        <button class="cli-cmd-item" onclick="startInlineSession('${esc(project)}','${role}','${esc(cmd)}')">${esc(cmd)}${suffixHtml}</button>
+      </div>`
+    ).join('');
+    entry.container.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#888;font-size:12px;padding:12px;">
+        <div style="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;color:#666;">Start ${role}</div>
+        ${cmdsHtml}
+        <div style="display:flex;gap:4px;margin-top:8px;">
+          <input class="cli-inline-input" type="text" placeholder="custom command..." style="font-size:11px;padding:3px 6px;border:1px solid #555;background:#2a2a2a;color:#ccc;border-radius:3px;width:140px;"
+            onkeydown="if(event.key==='Enter'){startInlineSession('${esc(project)}','${role}',this.value);}" />
+          <button class="term-hdr-btn" onclick="startInlineSession('${esc(project)}','${role}',this.previousElementSibling.value)">Start</button>
+        </div>
+      </div>
+    `;
+  }
+
+  async function startInlineSession(project, role, cmd) {
+    if (!cmd || !cmd.trim()) return;
+    cmd = cmd.trim();
+    if (role === 'planner' && !cmd.includes('--agent planner')) {
+      cmd += ' --agent planner';
+    }
+    try {
+      await api('/api/sessions', { method: 'POST', body: { project, role, cli_command: cmd } });
+      await loadSessions();
+      // Reconnect this slot with xterm
+      const cacheKey = `${project}-${role}`;
+      const entry = termCache[cacheKey];
+      if (entry) {
+        // Clear inline UI and set up xterm
+        entry.container.innerHTML = '';
+        const xtermContainer = document.createElement('div');
+        xtermContainer.style.cssText = 'width:100%;height:100%;';
+        entry.container.appendChild(xtermContainer);
+        entry.term.open(xtermContainer);
+        const session = sessionsData.find(s => s.project === project && s.role === role);
+        if (session?.ttyd_port) {
+          connectTtydWs(entry, session.ttyd_port, cacheKey);
+          requestAnimationFrame(() => {
+            entry.fitAddon.fit();
+            entry.term.focus();
+          });
+        }
+      }
+    } catch(e) { console.error('startInlineSession error', e); }
+  }
+
   function showTerminal(project, ttydPort, opts = {}) {
     const minimal = project === '_mpm-init';
-    // Hide previous dev terminal if switching projects
-    if (termProject && termProject !== project && termCache[termProject]) {
-      termCache[termProject].slot.style.display = 'none';
+    // Hide previous project's slots if switching
+    if (termProject && termProject !== project) {
+      for (const role of ['planner', 'dev']) {
+        const key = `${termProject}-${role}`;
+        if (termCache[key]) termCache[key].slot.style.display = 'none';
+      }
     }
 
     termProject = project;
@@ -2462,35 +2831,95 @@
     // Hide/show header buttons based on mode
     const startBtn = document.getElementById('term-start-btn');
     const killBtn = document.getElementById('term-kill-btn');
-    const popOutBtn = document.querySelector('[onclick="popOutTerminal()"]');
     const toggleBtn = document.querySelector('[onclick="toggleTermMode()"]');
     const closeBtn = document.querySelector('.term-header-actions [onclick="closeTerminal()"]');
-    if (startBtn) startBtn.style.display = minimal ? 'none' : '';
-    if (popOutBtn) popOutBtn.style.display = minimal ? 'none' : '';
+    if (startBtn) startBtn.style.display = 'none';
     if (closeBtn) closeBtn.style.display = minimal ? 'none' : '';
     if (toggleBtn) toggleBtn.style.display = '';
-    if (killBtn) killBtn.style.display = minimal ? 'inline-block' : '';
+    if (killBtn) killBtn.style.display = 'none';
 
     if (!minimal) {
       updateTermStatus();
       setFocusedProject(project);
     }
 
-    const entry = getOrCreateTerm(project, ttydPort);
-    entry.slot.style.display = 'flex';
+    // Show both planner and dev slots
+    const roles = minimal ? ['dev'] : ['planner', 'dev'];
+    const entries = [];
+    const ratio = parseFloat(localStorage.getItem('termSlotRatio') || '0.5');
+    for (const role of roles) {
+      const session = sessionsData.find(s => s.project === project && s.role === role);
+      const port = session?.ttyd_port || (role === 'dev' ? ttydPort : null);
+      const entry = getOrCreateTerm(project, port, role);
+      entry.slot.style.display = 'flex';
+      // Apply ratio: planner gets ratio, dev gets 1-ratio
+      if (!minimal && roles.length === 2) {
+        const pct = role === 'planner' ? ratio : (1 - ratio);
+        entry.slot.style.flex = `${pct} 1 0`;
+      }
+      entries.push(entry);
+    }
+    // Insert divider between slots if not already present
+    if (!minimal && entries.length === 2) {
+      const plannerSlot = entries[0].slot;
+      const devSlot = entries[1].slot;
+      let divider = termXtermEl.querySelector('.term-slot-divider');
+      if (!divider) {
+        divider = document.createElement('div');
+        divider.className = 'term-slot-divider';
+        divider.addEventListener('mousedown', startSlotDrag);
+      }
+      // Ensure order: planner, divider, dev
+      termXtermEl.insertBefore(plannerSlot, devSlot);
+      termXtermEl.insertBefore(divider, devSlot);
+    }
 
-    // Bring main window to foreground (in case switching from a popout)
     window.focus();
 
-    // Double rAF ensures layout is fully resolved before fitting
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      entry.fitAddon.fit();
-      entry.term.focus();
-      // Sync resize to ttyd
-      if (entry.ws && entry.ws.readyState === WebSocket.OPEN) {
-        entry.ws.send(new TextEncoder().encode('1' + JSON.stringify({ columns: entry.term.cols, rows: entry.term.rows })));
+      for (const entry of entries) {
+        entry.fitAddon.fit();
+        if (entry.ws && entry.ws.readyState === WebSocket.OPEN) {
+          entry.ws.send(new TextEncoder().encode('1' + JSON.stringify({ columns: entry.term.cols, rows: entry.term.rows })));
+        }
       }
+      // Focus the dev terminal by default
+      const devEntry = termCache[`${project}-dev`];
+      if (devEntry) devEntry.term.focus();
     }));
+  }
+
+  function startSlotDrag(e) {
+    e.preventDefault();
+    const isRight = termPanel.classList.contains('mode-right');
+    const rect = termXtermEl.getBoundingClientRect();
+
+    const onMove = (ev) => {
+      let ratio;
+      if (isRight) {
+        ratio = Math.max(0.1, Math.min(0.9, (ev.clientY - rect.top) / rect.height));
+      } else {
+        ratio = Math.max(0.1, Math.min(0.9, (ev.clientX - rect.left) / rect.width));
+      }
+      const plannerKey = `${termProject}-planner`;
+      const devKey = `${termProject}-dev`;
+      if (termCache[plannerKey]) termCache[plannerKey].slot.style.flex = `${ratio} 1 0`;
+      if (termCache[devKey]) termCache[devKey].slot.style.flex = `${1 - ratio} 1 0`;
+      localStorage.setItem('termSlotRatio', ratio.toFixed(3));
+    };
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      // Refit terminals after resize
+      for (const role of ['planner', 'dev']) {
+        const key = `${termProject}-${role}`;
+        if (termCache[key]) termCache[key].fitAddon.fit();
+      }
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   }
 
   function connectTtydWs(entry, ttydPort, project) {
@@ -2594,6 +3023,18 @@
     updateTermDimming();
   }
 
+  function focusProject(project) {
+    if (focusedProject === project) {
+      // Toggle off
+      setFocusedProject(null);
+      closeTerminal();
+    } else {
+      setFocusedProject(project);
+      const anchor = document.querySelector(`.col[data-project="${project}"] .col-label`);
+      openTerminal(project, anchor);
+    }
+  }
+
   function updateTermDimming() {
     // Show dimming when any terminal is active (panel or popout)
     const panelOpen = termProject && termPanel.classList.contains('open');
@@ -2684,8 +3125,11 @@
   };
 
   function closeTerminal() {
-    if (termProject && termCache[termProject]) {
-      termCache[termProject].slot.style.display = 'none';
+    if (termProject) {
+      for (const role of ['planner', 'dev']) {
+        const key = `${termProject}-${role}`;
+        if (termCache[key]) termCache[key].slot.style.display = 'none';
+      }
     }
     termPanel.classList.remove('open');
     document.body.classList.remove('term-open');
@@ -2695,9 +3139,9 @@
     requestAnimationFrame(fixStreamlines);
   }
 
-  async function killSession(project) {
+  async function killSession(project, role = 'dev') {
     try {
-      await api(`/api/sessions/${encodeURIComponent(project)}`, { method: 'DELETE' });
+      await api(`/api/sessions/${encodeURIComponent(project)}?role=${role}`, { method: 'DELETE' });
       // Clear border effect immediately
       applyAgentStatus(project, 'offline');
       const cache = JSON.parse(localStorage.getItem('agentStatus') || '{}');
@@ -2715,24 +3159,12 @@
     if (termProject) killSession(termProject);
   }
 
-  function startCliForSlot(project) {
-    openCliDialog(project);
+  function startCliForSlot(project, role = 'dev') {
+    openCliDialog(project, null, role);
   }
 
-  function killSlotSession(project) {
-    killSession(project);
-  }
-
-  function onTermCardClick(e, project, el) {
-    e.stopPropagation();
-    const session = sessionsData.find(s => s.project === project);
-    // If running/idle and clicked the stop icon
-    const actionEl = el.querySelector('[data-term-action]');
-    if (actionEl && e.target === actionEl && session && session.state !== 'off') {
-      killSession(project);
-      return;
-    }
-    openTerminal(project, el);
+  function killSlotSession(project, role = 'dev') {
+    killSession(project, role);
   }
 
   function onTermStopClick(project) {
@@ -3069,9 +3501,10 @@
       ? `.col[data-project="${project}"] .current-task-card`
       : '.current-task-card';
     document.querySelectorAll(selector).forEach(card => {
-      card.classList.remove('task-working', 'task-waiting');
+      card.classList.remove('task-working', 'task-waiting', 'task-reviewing');
       if (status === 'working') card.classList.add('task-working');
       else if (status === 'waiting') card.classList.add('task-waiting');
+      else if (status === 'reviewing') card.classList.add('task-reviewing');
     });
   }
 

@@ -1,0 +1,15 @@
+{
+  "patterns": [
+    "claude"
+  ],
+  "projects": [
+    "/home/lofi0boy/MpmWorkspace/MPM"
+  ],
+  "tmux_prefix": "mpm",
+  "timezone": "Asia/Seoul",
+  "saved_commands": [
+    "claude",
+    "claude --dangerously-skip-permissions",
+    "claude --dangerously-skip-permissions --chrome"
+  ]
+}

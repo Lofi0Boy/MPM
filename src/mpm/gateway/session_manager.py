@@ -33,11 +33,15 @@ class SessionState(Enum):
     RUNNING = "running"   # AI CLI process detected
 
 
+VALID_ROLES = ("dev", "planner")
+
+
 @dataclass
 class SessionInfo:
     project: str
     tmux_name: str
     state: SessionState
+    role: str = "dev"
     cli_name: Optional[str] = None
     pid: Optional[int] = None
     ttyd_port: Optional[int] = None
@@ -57,8 +61,8 @@ def _run(cmd: list[str], timeout: int = 5) -> tuple[int, str]:
         return -1, ""
 
 
-def _tmux_session_name(prefix: str, project: str) -> str:
-    return f"{prefix}-{project}"
+def _tmux_session_name(prefix: str, project: str, role: str = "dev") -> str:
+    return f"{prefix}-{project}-{role}"
 
 
 def _get_ttyd_port(project: str) -> int:
@@ -206,10 +210,13 @@ def _find_project_dir(config: dict, project: str) -> Optional[str]:
     return None
 
 
-def create_session(project: str, cli_command: Optional[str] = None) -> SessionInfo:
+def create_session(project: str, cli_command: Optional[str] = None, role: str = "dev") -> SessionInfo:
+    if role not in VALID_ROLES:
+        raise ValueError(f"Invalid role: {role}. Must be one of {VALID_ROLES}")
     config = _load_config()
     prefix = config.get("tmux_prefix", "mpm")
-    name = _tmux_session_name(prefix, project)
+    name = _tmux_session_name(prefix, project, role)
+    ttyd_key = f"{project}-{role}"
     project_dir = _find_project_dir(config, project)
 
     if not project_dir or not os.path.isdir(project_dir):
@@ -219,8 +226,8 @@ def create_session(project: str, cli_command: Optional[str] = None) -> SessionIn
     if name in list_tmux_sessions():
         # Ensure mouse mode and ttyd are running
         _run(["tmux", "set-option", "-t", name, "mouse", "on"])
-        _start_ttyd(project, name)
-        return get_session_info(project)
+        _start_ttyd(ttyd_key, name)
+        return get_session_info(project, role)
 
     # Create session
     cmd = ["tmux", "new-session", "-d", "-s", name, "-c", project_dir]
@@ -236,35 +243,36 @@ def create_session(project: str, cli_command: Optional[str] = None) -> SessionIn
 
     # Start CLI if specified
     if cli_command:
-        send_keys(project, cli_command)
+        send_keys(project, cli_command, role)
 
     # Start ttyd
-    _start_ttyd(project, name)
+    _start_ttyd(ttyd_key, name)
 
-    return get_session_info(project)
+    return get_session_info(project, role)
 
 
-def kill_session(project: str) -> bool:
+def kill_session(project: str, role: str = "dev") -> bool:
     config = _load_config()
     prefix = config.get("tmux_prefix", "mpm")
-    name = _tmux_session_name(prefix, project)
-    _stop_ttyd(project)
+    name = _tmux_session_name(prefix, project, role)
+    ttyd_key = f"{project}-{role}"
+    _stop_ttyd(ttyd_key)
     rc, _ = _run(["tmux", "kill-session", "-t", name])
     return rc == 0
 
 
-def send_keys(project: str, text: str) -> bool:
+def send_keys(project: str, text: str, role: str = "dev") -> bool:
     config = _load_config()
     prefix = config.get("tmux_prefix", "mpm")
-    name = _tmux_session_name(prefix, project)
+    name = _tmux_session_name(prefix, project, role)
     rc, _ = _run(["tmux", "send-keys", "-t", name, text, "Enter"])
     return rc == 0
 
 
-def capture_pane(project: str, lines: int = 200) -> str:
+def capture_pane(project: str, lines: int = 200, role: str = "dev") -> str:
     config = _load_config()
     prefix = config.get("tmux_prefix", "mpm")
-    name = _tmux_session_name(prefix, project)
+    name = _tmux_session_name(prefix, project, role)
     rc, out = _run(["tmux", "capture-pane", "-t", name, "-p", "-S", f"-{lines}"])
     if rc != 0:
         return ""
@@ -313,29 +321,30 @@ def _detect_cli_in_session(tmux_name: str, patterns: list[str]) -> Optional[tupl
 # Public API
 # ---------------------------------------------------------------------------
 
-def get_session_info(project: str) -> SessionInfo:
+def get_session_info(project: str, role: str = "dev") -> SessionInfo:
     config = _load_config()
     prefix = config.get("tmux_prefix", "mpm")
     patterns = config.get("patterns", [])
-    name = _tmux_session_name(prefix, project)
+    name = _tmux_session_name(prefix, project, role)
+    ttyd_key = f"{project}-{role}"
 
     if name not in list_tmux_sessions():
-        return SessionInfo(project=project, tmux_name=name, state=SessionState.OFF)
+        return SessionInfo(project=project, tmux_name=name, state=SessionState.OFF, role=role)
 
     ttyd_port = None
-    if _is_ttyd_alive(project):
-        ttyd_port = _get_ttyd_port(project)
+    if _is_ttyd_alive(ttyd_key):
+        ttyd_port = _get_ttyd_port(ttyd_key)
 
     cli = _detect_cli_in_session(name, patterns)
     if cli:
         return SessionInfo(
             project=project, tmux_name=name,
-            state=SessionState.RUNNING, cli_name=cli[0], pid=cli[1],
+            state=SessionState.RUNNING, role=role, cli_name=cli[0], pid=cli[1],
             ttyd_port=ttyd_port,
         )
 
     return SessionInfo(
-        project=project, tmux_name=name, state=SessionState.IDLE,
+        project=project, tmux_name=name, state=SessionState.IDLE, role=role,
         ttyd_port=ttyd_port,
     )
 
@@ -370,14 +379,16 @@ def reconnect_ttyd() -> None:
     for name in list_tmux_sessions():
         if not name.startswith(f"{prefix}-"):
             continue
-        project = name[len(prefix) + 1:]
-        if project in _ttyd_procs:
+        # name format: {prefix}-{project}-{role}
+        suffix = name[len(prefix) + 1:]
+        ttyd_key = suffix  # project-role
+        if ttyd_key in _ttyd_procs:
             continue
         try:
-            port = _start_ttyd(project, name)
-            print(f"MPM reconnect: ttyd for {project} on port {port}")
+            port = _start_ttyd(ttyd_key, name)
+            print(f"MPM reconnect: ttyd for {ttyd_key} on port {port}")
         except RuntimeError as e:
-            print(f"MPM reconnect: failed for {project} — {e}")
+            print(f"MPM reconnect: failed for {ttyd_key} — {e}")
 
 
 def get_all_sessions() -> list[dict]:
@@ -393,19 +404,21 @@ def get_all_sessions() -> list[dict]:
         if not d.is_dir():
             continue
         project_name = d.name
-        name = _tmux_session_name(prefix, project_name)
-        if name in active_tmux:
-            results.append(get_session_info(project_name))
-        else:
-            results.append(SessionInfo(
-                project=project_name, tmux_name=name, state=SessionState.OFF,
-            ))
+        for role in VALID_ROLES:
+            name = _tmux_session_name(prefix, project_name, role)
+            if name in active_tmux:
+                results.append(get_session_info(project_name, role))
+            else:
+                results.append(SessionInfo(
+                    project=project_name, tmux_name=name, state=SessionState.OFF, role=role,
+                ))
 
     return [
         {
             "project": s.project,
             "tmux_name": s.tmux_name,
             "state": s.state.value,
+            "role": s.role,
             "cli_name": s.cli_name,
             "pid": s.pid,
             "ttyd_port": s.ttyd_port,
