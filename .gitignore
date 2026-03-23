@@ -7,6 +7,8 @@ build/
 node_modules/
 
 # Runtime data (not for distribution)
-data/
-.mpm/data/current/
-.mpm/data/past/
+.mpm/data/
+.mpm/docs/
+.mpm/gstack/
+.mpm/scripts/
+.claude/
