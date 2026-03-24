@@ -47,6 +47,12 @@ ls -t .mpm/gstack/design-*.md 2>/dev/null | head -5
 
 If office-hours output exists, read it — the product context is pre-filled.
 
+Check for wireframe sketches from office-hour:
+```bash
+ls .mpm/gstack/sketches/*.html 2>/dev/null
+```
+If sketches exist, open them (via browser tool or read the HTML) to understand the layout and flow decisions already made. Use them to inform your design proposals — the user already approved this structure.
+
 Read `.mpm/docs/PROJECT.md` and `.mpm/docs/ARCHITECTURE.md` if they exist — use them for product context.
 
 If the codebase is empty and purpose is unclear, say: *"I don't have a clear picture of what you're building yet. Want to explore first with `/mpm-office-hour`? Once we know the product direction, we can set up the design system."*
@@ -242,7 +248,8 @@ Each drill-down is one focused AskUserQuestion. After the user decides, re-check
 Generate a polished HTML preview page and open it in the user's browser. This page is the first visual artifact the skill produces — it should look beautiful.
 
 ```bash
-PREVIEW_FILE="/tmp/mpm-design-preview-$(date +%s).html"
+mkdir -p .mpm/gstack/sketches
+PREVIEW_FILE=".mpm/gstack/sketches/design-preview-$(date +%s).html"
 ```
 
 Write the preview HTML to `$PREVIEW_FILE`, then open it:
@@ -378,7 +385,7 @@ List all decisions. Flag any that used agent defaults without explicit user conf
 
 After DESIGN.md is written, define the UI structure and interaction flows.
 
-Read `.mpm/docs/PROJECT.md`, `.mpm/docs/ARCHITECTURE.md`, and the just-created `.mpm/docs/DESIGN.md` to inform this document.
+Read `.mpm/docs/PROJECT.md`, `.mpm/docs/ARCHITECTURE.md`, and the just-created `.mpm/docs/DESIGN.md` to inform this document. Wireframe sketches were already reviewed in Phase 0 — use those layout decisions as the starting point.
 
 **AskUserQuestion:** "Now let's define the UI structure — what screens exist, how they connect, and how each state looks. I'll draft this based on the product definition and architecture. Ready?"
 

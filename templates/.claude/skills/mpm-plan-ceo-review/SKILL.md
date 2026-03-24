@@ -31,7 +31,7 @@ Do NOT make any code changes. Do NOT start implementation. Your only job right n
 4. Interactions have edge cases. Every user-visible interaction has edge cases: double-click, navigate-away-mid-action, slow connection, stale state, back button. Map them.
 5. Observability is scope, not afterthought. New dashboards, alerts, and runbooks are first-class deliverables, not post-launch cleanup items.
 6. Diagrams are mandatory. No non-trivial flow goes undiagrammed. ASCII art for every new data flow, state machine, processing pipeline, dependency graph, and decision tree.
-7. Everything deferred must be written down. Vague intentions are lies. TODOS.md or it doesn't exist.
+7. Everything deferred must be written down. Vague intentions are lies. .mpm/docs/TODOS.md or it doesn't exist.
 8. Optimize for the 6-month future, not just today. If this plan solves today's problem but creates next quarter's nightmare, say so explicitly.
 9. You have permission to say "scrap it and do this instead." If there's a fundamentally better approach, table it. I'd rather hear it now.
 
@@ -107,7 +107,7 @@ sure," or is clearly exploring rather than reviewing — offer `/mpm-office-hour
 Options: A) Yes, run /mpm-office-hour now. B) No, keep going.
 If they keep going, proceed normally — no guilt, no re-asking.
 
-When reading TODOS.md, specifically:
+When reading .mpm/docs/TODOS.md, specifically:
 * Note any TODOs this plan touches, blocks, or unlocks
 * Check if deferred work from prior reviews relates to this plan
 * Flag dependencies: does this plan enable or depend on deferred items?
@@ -198,7 +198,7 @@ Rules:
 1. 10x check: What's the version that's 10x more ambitious and delivers 10x more value for 2x the effort? Describe it concretely.
 2. Platonic ideal: If the best engineer in the world had unlimited time and perfect taste, what would this system look like? What would the user feel when using it? Start from experience, not architecture.
 3. Delight opportunities: What adjacent 30-minute improvements would make this feature sing? Things where a user would think "oh nice, they thought of that." List at least 5.
-4. **Expansion opt-in ceremony:** Describe the vision first (10x check, platonic ideal). Then distill concrete scope proposals from those visions — individual features, components, or improvements. Present each proposal as its own AskUserQuestion. Recommend enthusiastically — explain why it's worth doing. But the user decides. Options: **A)** Add to this plan's scope **B)** Defer to TODOS.md **C)** Skip. Accepted items become plan scope for all remaining review sections. Rejected items go to "NOT in scope."
+4. **Expansion opt-in ceremony:** Describe the vision first (10x check, platonic ideal). Then distill concrete scope proposals from those visions — individual features, components, or improvements. Present each proposal as its own AskUserQuestion. Recommend enthusiastically — explain why it's worth doing. But the user decides. Options: **A)** Add to this plan's scope **B)** Defer to .mpm/docs/TODOS.md **C)** Skip. Accepted items become plan scope for all remaining review sections. Rejected items go to "NOT in scope."
 
 **For SELECTIVE EXPANSION** — run the HOLD SCOPE analysis first, then surface expansions:
 1. Complexity check: If the plan touches more than 8 files or introduces more than 2 new classes/services, treat that as a smell and challenge whether the same goal can be achieved with fewer moving parts.
@@ -207,7 +207,7 @@ Rules:
    - 10x check: What's the version that's 10x more ambitious? Describe it concretely.
    - Delight opportunities: What adjacent 30-minute improvements would make this feature sing? List at least 5.
    - Platform potential: Would any expansion turn this feature into infrastructure other features can build on?
-4. **Cherry-pick ceremony:** Present each expansion opportunity as its own individual AskUserQuestion. Neutral recommendation posture — present the opportunity, state effort (S/M/L) and risk, let the user decide without bias. Options: **A)** Add to this plan's scope **B)** Defer to TODOS.md **C)** Skip. If you have more than 8 candidates, present the top 5-6 and note the remainder as lower-priority options the user can request. Accepted items become plan scope for all remaining review sections. Rejected items go to "NOT in scope."
+4. **Cherry-pick ceremony:** Present each expansion opportunity as its own individual AskUserQuestion. Neutral recommendation posture — present the opportunity, state effort (S/M/L) and risk, let the user decide without bias. Options: **A)** Add to this plan's scope **B)** Defer to .mpm/docs/TODOS.md **C)** Skip. If you have more than 8 candidates, present the top 5-6 and note the remainder as lower-priority options the user can request. Accepted items become plan scope for all remaining review sections. Rejected items go to "NOT in scope."
 
 **For HOLD SCOPE** — run this:
 1. Complexity check: If the plan touches more than 8 files or introduces more than 2 new classes/services, treat that as a smell and challenge whether the same goal can be achieved with fewer moving parts.
@@ -260,7 +260,7 @@ Repo: {owner/repo}
 ## Accepted Scope (added to this plan)
 - {bullet list of what's now in scope}
 
-## Deferred to TODOS.md
+## Deferred to .mpm/docs/TODOS.md
 - {items with context}
 ```
 
@@ -616,7 +616,7 @@ Complete table of every method that can fail, every exception class, rescued sta
 ```
 Any row with RESCUED=N, TEST=N, USER SEES=Silent → **CRITICAL GAP**.
 
-### TODOS.md updates
+### .mpm/docs/TODOS.md updates
 Present each potential TODO as its own individual AskUserQuestion. Never batch TODOs — one per question.
 
 For each TODO, describe:
@@ -629,12 +629,12 @@ For each TODO, describe:
 * **Priority:** P1/P2/P3
 * **Depends on / blocked by:** Any prerequisites or ordering constraints.
 
-Then present options: **A)** Add to TODOS.md **B)** Skip — not valuable enough **C)** Build it now in this PR instead of deferring.
+Then present options: **A)** Add to .mpm/docs/TODOS.md **B)** Skip — not valuable enough **C)** Build it now in this PR instead of deferring.
 
 ### Scope Expansion Decisions (EXPANSION and SELECTIVE EXPANSION only)
 Expansion opportunities and delight items were surfaced and decided in Step 0D (opt-in/cherry-pick ceremony). The decisions are persisted in the CEO plan document. Reference the CEO plan for the full record. Do not re-surface them here — list the accepted expansions for completeness:
 * Accepted: {list items added to scope}
-* Deferred: {list items sent to TODOS.md}
+* Deferred: {list items sent to .mpm/docs/TODOS.md}
 * Skipped: {list items rejected}
 
 ### Diagrams (mandatory, produce all that apply)
@@ -673,7 +673,7 @@ List every ASCII diagram in files this plan touches. Still accurate?
   | Dream state delta    | written                                     |
   | Error/rescue registry| ___ methods, ___ CRITICAL GAPS              |
   | Failure modes        | ___ total, ___ CRITICAL GAPS                |
-  | TODOS.md updates     | ___ items proposed                          |
+  | .mpm/docs/TODOS.md updates     | ___ items proposed                          |
   | Scope proposals      | ___ proposed, ___ accepted (EXP + SEL)      |
   | CEO plan             | written / skipped (HOLD/REDUCTION)           |
   | Lake Score           | X/Y recommendations chose complete option   |

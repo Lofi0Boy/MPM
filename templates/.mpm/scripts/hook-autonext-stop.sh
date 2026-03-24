@@ -101,13 +101,20 @@ print(len(tasks))
     if [[ "$MODE" != "--all" ]] && [[ "$MODE" != "" ]]; then
       echo "✅ MPM Auto-Next complete ($TASKS_DONE tasks processed). No more tasks."
       rm "$STATE_FILE"
+      rm -f ".mpm/data/current/${SID}.reviewer-id"
+      rm -f ".mpm/data/current/${SID}.reviewed"
       exit 0
     fi
     # Default mode — future is empty, done
     echo "✅ MPM Auto-Next complete ($TASKS_DONE tasks processed). No more tasks."
     rm "$STATE_FILE"
+    rm -f ".mpm/data/current/${SID}.reviewer-id"
+    rm -f ".mpm/data/current/${SID}.reviewed"
     exit 0
   fi
+
+  # Clean up review markers from previous task (keep reviewer-id for reuse across tasks)
+  rm -f ".mpm/data/current/${SID}.reviewed"
 
   # Feed next task
   PROMPT="Pop the next task: python3 .mpm/scripts/task.py pop $SID

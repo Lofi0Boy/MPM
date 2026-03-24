@@ -274,7 +274,7 @@ Design decisions considered and explicitly deferred, with one-line rationale eac
 ### "What already exists" section
 Existing DESIGN.md, UI patterns, and components that the plan should reuse.
 
-### TODOS.md updates
+### .mpm/docs/TODOS.md updates
 After all review passes are complete, present each potential TODO as its own individual AskUserQuestion. Never batch TODOs — one per question.
 
 For design debt: missing a11y, unresolved responsive behavior, deferred empty states. Each TODO gets:
@@ -285,7 +285,7 @@ For design debt: missing a11y, unresolved responsive behavior, deferred empty st
 * **Context:** Enough detail that someone picking this up in 3 months understands the motivation.
 * **Depends on / blocked by:** Any prerequisites.
 
-Then present options: **A)** Add to TODOS.md **B)** Skip — not valuable enough **C)** Build it now in this PR instead of deferring.
+Then present options: **A)** Add to .mpm/docs/TODOS.md **B)** Skip — not valuable enough **C)** Build it now in this PR instead of deferring.
 
 ### Completion Summary
 ```
@@ -304,7 +304,7 @@ Then present options: **A)** Add to TODOS.md **B)** Skip — not valuable enough
   +--------------------------------------------------------------------+
   | NOT in scope         | written (___ items)                         |
   | What already exists  | written                                     |
-  | TODOS.md updates     | ___ items proposed                          |
+  | .mpm/docs/TODOS.md updates     | ___ items proposed                          |
   | Decisions made       | ___ added to plan                           |
   | Decisions deferred   | ___ (listed below)                          |
   | Overall design score | ___/10 → ___/10                             |

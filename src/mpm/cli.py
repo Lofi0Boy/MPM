@@ -225,15 +225,42 @@ def onboard(ctx):
             else:
                 click.echo(f"Error: {project_dir} is not a directory")
 
-    # 6. Missing dependency reminder
+    # 6. Missing dependency auto-install
     if missing:
         click.echo()
         click.echo(click.style("⚠ Missing dependencies:", fg="yellow", bold=True))
         for name, hint in missing:
             click.echo(click.style(f"  {name}: {hint}", fg="yellow"))
         click.echo()
-    else:
-        click.echo("\nRun 'mpm dashboard' to start.")
+
+        auto = questionary.confirm(
+            "Install missing dependencies automatically?",
+            default=True,
+            style=MPM_STYLE,
+        ).ask()
+
+        if auto:
+            from shutil import which as _which
+            for name, hint in missing:
+                click.echo(f"  Installing {name}...")
+                try:
+                    result = subprocess.run(
+                        hint, shell=True,
+                        capture_output=True, text=True, timeout=120,
+                    )
+                    if result.returncode == 0 and _which(name):
+                        click.echo(click.style(f"  ✓ {name} installed", fg="green"))
+                    else:
+                        click.echo(click.style(f"  ✗ {name} failed — run manually: {hint}", fg="red"))
+                        if result.stderr:
+                            click.echo(f"    {result.stderr.strip()[:200]}")
+                except subprocess.TimeoutExpired:
+                    click.echo(click.style(f"  ✗ {name} timed out — run manually: {hint}", fg="red"))
+                except Exception as e:
+                    click.echo(click.style(f"  ✗ {name} error: {e}", fg="red"))
+            click.echo()
+
+    click.echo("Run 'mpm dashboard' to start.")
 
 
 @main.command()
@@ -399,7 +426,11 @@ def init(path):
 
     click.echo(f"✓ MPM initialized in {project_dir}")
     click.echo(f"✓ Registered in {CONFIG_PATH}")
-    click.echo("\nStart a Claude Code session to begin. The agent will guide you through PROJECT.md setup.")
+    click.echo()
+    click.echo("Next: set up your project with the planner agent. Copy and run:")
+    click.echo()
+    click.echo(click.style(f"  cd {project_dir} && claude --agent mpm-planner /mpm-init", fg="cyan", bold=True))
+    click.echo()
 
     # Notify dashboard to close init terminal and refresh
     try:

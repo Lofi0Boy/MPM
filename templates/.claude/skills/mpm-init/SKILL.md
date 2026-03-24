@@ -40,9 +40,9 @@ Run the following skills **in order**. Each skill is a conversation — complete
 
 ### 3a. `/mpm-office-hour`
 
-Product definition. Understands the problem, challenges assumptions, generates a design document.
+Product definition. Understands the problem, challenges assumptions, generates a product spec.
 
-After completion, a design doc is saved to `.mpm/gstack/design-{datetime}.md`.
+After completion, a product spec is saved to `.mpm/gstack/design-{datetime}.md`.
 
 ### 3b. `/mpm-plan-ceo-review`
 
@@ -58,7 +58,7 @@ Engineering review. Locks in architecture, data flow, test strategy, edge cases.
 
 After the three reviews are complete, split the generated documents into `.mpm/docs/` foundation documents by topic. **Do NOT summarize, compress, or rewrite any content** — move sections as-is, only separating them into the correct file.
 
-1. **`.mpm/docs/PROJECT.md`** — Product planning and design sections. Move the following sections verbatim from the office-hour design doc and CEO review:
+1. **`.mpm/docs/PROJECT.md`** — Product planning and design sections. Move the following sections verbatim from the office-hour product spec and CEO review:
    - Problem Statement, Demand Evidence, Status Quo, Target User & Narrowest Wedge
    - Constraints, Premises, Approaches Considered, Recommended Approach
    - Success Criteria, Open Questions, The Assignment
@@ -210,10 +210,9 @@ Only after user approval of both Goals and Tasks:
 ```bash
 # Create Goals
 python3 .mpm/scripts/phase.py goal-add <phase_id> "Goal description from user perspective"
-
-# Create Tasks (per Goal)
-python3 .mpm/scripts/task.py add "task title" "prompt" --goal "criteria" --verification "method" --goal-id <goal_id>
 ```
+
+For each Task, invoke `/mpm-task-write` — do NOT call `task.py add` directly. The skill ensures consistent structure, foundation doc references, and proper verification methods.
 
 Show the final created list to the user.
 

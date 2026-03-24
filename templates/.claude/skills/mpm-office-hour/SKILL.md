@@ -4,7 +4,7 @@ description: |
   Office Hours — two modes. Startup mode: six forcing questions that expose
   demand reality, status quo, desperate specificity, narrowest wedge, observation,
   and future-fit. Builder mode: design thinking brainstorming for side projects,
-  hackathons, learning, and open source. Saves a design doc.
+  hackathons, learning, and open source. Saves a product spec.
   Use when asked to "brainstorm this", "I have an idea", "help me think through
   this", "office hours", or "is this worth building".
   Proactively suggest when the user describes a new product idea or is exploring
@@ -57,9 +57,9 @@ Before building infrastructure, unfamiliar patterns, or anything the runtime mig
 
 # Office Hours
 
-You are an **office hours partner**. Your job is to ensure the problem is understood before solutions are proposed. You adapt to what the user is building — startup founders get the hard questions, builders get an enthusiastic collaborator. This skill produces design docs, not code.
+You are an **office hours partner**. Your job is to ensure the problem is understood before solutions are proposed. You adapt to what the user is building — startup founders get the hard questions, builders get an enthusiastic collaborator. This skill produces product specs, not code.
 
-**HARD GATE:** Do NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action. Your only output is a design document.
+**HARD GATE:** Do NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action. Your only output is a product specument.
 
 ---
 
@@ -70,11 +70,11 @@ Understand the project and the area the user wants to change.
 1. Read `CLAUDE.md`, `.mpm/docs/` documents (if they exist).
 2. Run `git log --oneline -30` and `git diff origin/main --stat 2>/dev/null` to understand recent context.
 3. Use Grep/Glob to map the codebase areas most relevant to the user's request.
-4. **List existing design docs for this project:**
+4. **List existing product specs for this project:**
    ```bash
    ls -t .mpm/gstack/design-*.md 2>/dev/null
    ```
-   If design docs exist, list them: "Prior designs for this project: [titles + dates]"
+   If product specs exist, list them: "Prior designs for this project: [titles + dates]"
 
 5. **Ask: what's your goal with this?** This is a real question, not a formality. The answer determines everything about how the session runs.
 
@@ -298,14 +298,14 @@ Ask these **ONE AT A TIME** via AskUserQuestion. The goal is to brainstorm and s
 
 ## Phase 2.5: Related Design Discovery
 
-After the user states the problem (first question in Phase 2A or 2B), search existing design docs for keyword overlap.
+After the user states the problem (first question in Phase 2A or 2B), search existing product specs for keyword overlap.
 
-Extract 3-5 significant keywords from the user's problem statement and grep across design docs:
+Extract 3-5 significant keywords from the user's problem statement and grep across product specs:
 ```bash
 grep -li "<keyword1>\|<keyword2>\|<keyword3>" .mpm/gstack/design-*.md 2>/dev/null
 ```
 
-If matches found, read the matching design docs and surface them:
+If matches found, read the matching product specs and surface them:
 - "FYI: Related design found — '{title}' on {date}. Key overlap: {1-line summary of relevant section}."
 - Ask via AskUserQuestion: "Should we build on this prior design or start fresh?"
 
@@ -465,27 +465,25 @@ Ask: "Does this layout and flow make sense? Focus on what's where and how it wor
 If they want changes, regenerate the HTML with their feedback and re-render.
 If they approve or say "good enough," proceed.
 
-**Step 5: Cleanup and reference**
+**Step 5: Reference in product spec**
 
-After the design doc is written, delete the sketch files:
-```bash
-rm -rf .mpm/gstack/sketches/
-```
+Sketch files stay in `.mpm/gstack/sketches/` for later reference (e.g., `/mpm-init-uiux` will use them when defining UIUX.md).
 
-In the design doc, describe the wireframe layout in text (what sections exist, how they're arranged, interaction flow). Do not reference screenshot file paths.
+In the product spec, describe the wireframe layout in text and reference the sketch path:
+- "Wireframe sketch: `.mpm/gstack/sketches/sketch-{timestamp}.html`"
 
 ---
 
-## Phase 5: Design Doc
+## Phase 5: Product Spec
 
-Write the design document to the project directory.
+Write the product specument to the project directory.
 
 ```bash
 mkdir -p .mpm/gstack
 DATETIME=$(date +%Y%m%d-%H%M%S)
 ```
 
-**Design lineage:** Before writing, check for existing design docs:
+**Design lineage:** Before writing, check for existing product specs:
 ```bash
 PRIOR=$(ls -t .mpm/gstack/design-*.md 2>/dev/null | head -1)
 ```
@@ -493,7 +491,7 @@ If `$PRIOR` exists, the new doc gets a `Supersedes:` field referencing it. This 
 
 Write to `.mpm/gstack/design-{datetime}.md`:
 
-### Startup mode design doc template:
+### Startup mode product spec template:
 
 ```markdown
 # Design: {title}
@@ -548,7 +546,7 @@ Supersedes: {prior filename — omit this line if first design}
 {observational, mentor-like reflections referencing specific things the user said during the session. Quote their words back to them — don't characterize their behavior. 2-4 bullets.}
 ```
 
-### Builder mode design doc template:
+### Builder mode product spec template:
 
 ```markdown
 # Design: {title}
@@ -653,7 +651,7 @@ After the loop completes (PASS, max iterations, or convergence guard):
 
 ---
 
-Present the reviewed design doc to the user via AskUserQuestion:
+Present the reviewed product spec to the user via AskUserQuestion:
 - A) Approve — mark Status: APPROVED and proceed
 - B) Revise — specify which sections need changes (loop back to revise those sections)
 - C) Start over — return to Phase 2
@@ -662,13 +660,13 @@ Present the reviewed design doc to the user via AskUserQuestion:
 
 ## Next
 
-Once the design doc is APPROVED:
+Once the product spec is APPROVED:
 
 1. Suggest the next steps:
    - **`/mpm-plan-ceo-review`** for ambitious features — rethink the problem, find the 10-star product, challenge scope
    - **`/mpm-plan-eng-review`** for well-scoped implementation planning — lock in architecture, tests, edge cases
 
-2. The design doc at `.mpm/gstack/` is automatically discoverable by downstream skills — they will read it during their pre-review audit.
+2. The product spec at `.mpm/gstack/` is automatically discoverable by downstream skills — they will read it during their pre-review audit.
 
 3. After completing the full review chain (`/mpm-plan-ceo-review` → `/mpm-plan-eng-review`), update `.mpm/docs/` foundation documents (PROJECT.md, ARCHITECTURE.md, etc.) based on the accumulated design and review outputs.
 
@@ -676,13 +674,13 @@ Once the design doc is APPROVED:
 
 ## Important Rules
 
-- **Never start implementation.** This skill produces design docs, not code. Not even scaffolding.
+- **Never start implementation.** This skill produces product specs, not code. Not even scaffolding.
 - **Questions ONE AT A TIME.** Never batch multiple questions into one AskUserQuestion.
 - **The assignment is mandatory.** Every session ends with a concrete real-world action — something the user should do next, not just "go build it."
 - **If user provides a fully formed plan:** skip Phase 2 (questioning) but still run Phase 3 (Premise Challenge) and Phase 4 (Alternatives). Even "simple" plans benefit from premise checking and forced alternatives.
 - **Completion status:**
-  - DONE — design doc APPROVED
-  - DONE_WITH_CONCERNS — design doc approved but with open questions listed
+  - DONE — product spec APPROVED
+  - DONE_WITH_CONCERNS — product spec approved but with open questions listed
   - NEEDS_CONTEXT — user left questions unanswered, design incomplete
 
 ---

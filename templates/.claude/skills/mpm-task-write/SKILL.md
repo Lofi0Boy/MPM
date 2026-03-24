@@ -13,7 +13,7 @@ Create tasks that developer agents can execute autonomously.
 
 Every task MUST belong to a goal. Current goals:
 
-!`python3 .mpm/scripts/phase.py status 2>/dev/null || echo "(no phases — run /mpm-init first)"`
+!`python3 .mpm/scripts/phase.py status`
 
 Choose the appropriate goal and include `--goal-id <id>` when calling `task.py add`.
 

@@ -82,7 +82,7 @@ Before reviewing anything, answer these questions:
    If WebSearch is unavailable, skip this check and note: "Search unavailable — proceeding with in-distribution knowledge only."
 
    If the plan rolls a custom solution where a built-in exists, flag it as a scope reduction opportunity.
-5. **TODOS cross-reference:** Read `TODOS.md` if it exists. Are any deferred items blocking this plan? Can any deferred items be bundled into this PR without expanding scope? Does this plan create new work that should be captured as a TODO?
+5. **TODOS cross-reference:** Read `.mpm/docs/TODOS.md` if it exists. Are any deferred items blocking this plan? Can any deferred items be bundled into this PR without expanding scope? Does this plan create new work that should be captured as a TODO?
 6. **Completeness check:** Is the plan doing the complete version or a shortcut? With AI-assisted coding, the cost of completeness (100% test coverage, full edge case handling, complete error paths) is 10-100x cheaper than with a human team. If the plan proposes a shortcut that saves human-hours but only saves minutes with AI-assisted coding, recommend the complete version. Boil the lake.
 
 If the complexity check triggers (8+ files or 2+ new classes/services), proactively recommend scope reduction via AskUserQuestion — explain what's overbuilt, propose a minimal version that achieves the core goal, and ask whether to reduce or proceed as-is. If the complexity check does not trigger, present your Step 0 findings and proceed directly to Section 1.
@@ -186,7 +186,7 @@ Every plan review MUST produce a "NOT in scope" section listing work that was co
 ### "What already exists" section
 List existing code/flows that already partially solve sub-problems in this plan, and whether the plan reuses them or unnecessarily rebuilds them.
 
-### TODOS.md updates
+### .mpm/docs/TODOS.md updates
 After all review sections are complete, present each potential TODO as its own individual AskUserQuestion. Never batch TODOs — one per question.
 
 For each TODO, describe:
@@ -197,7 +197,7 @@ For each TODO, describe:
 * **Context:** Enough detail that someone picking this up in 3 months understands the motivation, the current state, and where to start.
 * **Depends on / blocked by:** Any prerequisites or ordering constraints.
 
-Then present options: **A)** Add to TODOS.md **B)** Skip — not valuable enough **C)** Build it now in this PR instead of deferring.
+Then present options: **A)** Add to .mpm/docs/TODOS.md **B)** Skip — not valuable enough **C)** Build it now in this PR instead of deferring.
 
 Do NOT just append vague bullet points. A TODO without context is worse than no TODO — it creates false confidence that the idea was captured while actually losing the reasoning.
 
@@ -221,7 +221,7 @@ At the end of the review, fill in and display this summary so the user can see a
 - Performance Review: ___ issues found
 - NOT in scope: written
 - What already exists: written
-- TODOS.md updates: ___ items proposed to user
+- .mpm/docs/TODOS.md updates: ___ items proposed to user
 - Failure modes: ___ critical gaps flagged
 - Lake Score: X/Y recommendations chose complete option
 
