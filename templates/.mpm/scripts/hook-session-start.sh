@@ -18,6 +18,18 @@ $content
 "
   done
 
+  # Token files
+  TOKEN_DIR="$DOCS/tokens"
+  if [ -d "$TOKEN_DIR" ]; then
+    for tf in "$TOKEN_DIR"/*; do
+      [ -f "$tf" ] || continue
+      output+="
+--- tokens/$(basename "$tf") ---
+$(cat "$tf")
+"
+    done
+  fi
+
   if [ -n "$output" ]; then
     echo "[MPM Project Context]"
     echo "$output"

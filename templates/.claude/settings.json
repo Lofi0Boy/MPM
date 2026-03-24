@@ -81,7 +81,7 @@
     ],
     "SubagentStart": [
       {
-        "matcher": "planner",
+        "matcher": "mpm-planner",
         "hooks": [
           {
             "type": "command",
@@ -90,7 +90,7 @@
         ]
       },
       {
-        "matcher": "reviewer",
+        "matcher": "mpm-reviewer",
         "hooks": [
           {
             "type": "command",

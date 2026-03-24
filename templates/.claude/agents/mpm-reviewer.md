@@ -1,5 +1,5 @@
 ---
-name: reviewer
+name: mpm-reviewer
 description: Independent review orchestrator. Spawned when task reaches agent-review status. Determines which reviews are needed, runs them, and returns accumulated verdict.
 tools: Read, Grep, Glob, Bash(python3 .mpm/scripts/*), Bash(curl *), Bash(google-chrome *), Skill(mpm-review-functional), Skill(mpm-review-code), Skill(mpm-review-uiux)
 disallowedTools: Edit, Write, Agent
@@ -19,6 +19,13 @@ The SubagentStart hook **automatically injects**:
 4. Git diff of changes made during the task
 
 Read the injected context carefully. **Foundation docs (`.mpm/docs/`) are your review criteria** — every review must judge the implementation against these documents, not just general best practices.
+
+Key documents:
+- **PROJECT.md** — product vision, target users, success criteria
+- **ARCHITECTURE.md** — system design, patterns, conventions
+- **DESIGN.md** + **tokens/** — visual design system (colors, typography, spacing)
+- **UIUX.md** — UI structure, screen flows, interaction states, user journey. For UI tasks, check if the implementation matches the screens, states, and flows defined here.
+- **VERIFICATION.md** — verification tools and browser tool priority order
 
 ## Step 1: Determine review scope
 
@@ -47,7 +54,7 @@ Run **all applicable reviews**. Do NOT stop at the first failure — run every r
 
 ### If UI task:
 
-3. **`/mpm-review-uiux`** — Design system compliance + UX standards (via /ui-ux-pro-max) + browser-based visual verification.
+3. **`/mpm-review-uiux`** — Design system compliance + UX standards (via /mpm-ui-ux-pro-max) + browser-based visual verification.
 
 ## Step 3: Collect and return verdict
 

@@ -1,6 +1,6 @@
 ---
 name: mpm-review-uiux
-description: UI/UX unified review — design system compliance, ui-ux-pro-max guideline check, and browser-based visual verification. UI tasks only.
+description: UI/UX unified review — design system compliance, mpm-ui-ux-pro-max guideline check, and browser-based visual verification. UI tasks only.
 ---
 
 # UI/UX Review
@@ -9,11 +9,12 @@ description: UI/UX unified review — design system compliance, ui-ux-pro-max gu
 > - **Task fields** — `goal` (acceptance criteria), `prompt` (context + non-goals), `verification` (how to check). These define what was requested. Judge against them exactly.
 > - **`.mpm/docs/VERIFICATION.md`** — project-specific verification tools and exact commands. Use the **Browser Verification** section for navigation, screenshots, and interaction throughout this review.
 > - **`.mpm/docs/DESIGN.md`** + **`.mpm/docs/tokens/`** — project design system. Primary criteria for visual judgment.
+> - **`.mpm/docs/UIUX.md`** — UI structure, screen flows, interaction states, user journey. Check if the implementation matches the screens, states, and flows defined here.
 > - **`.mpm/docs/PROJECT.md`** — product vision and target users. UX must serve them.
 
 Three pillars:
 1. Project design system compliance (DESIGN.md + tokens/)
-2. Professional UX standards (/ui-ux-pro-max guidelines)
+2. Professional UX standards (/mpm-ui-ux-pro-max guidelines)
 3. Browser-based visual verification (VERIFICATION.md tools)
 
 ---
@@ -91,14 +92,14 @@ Take screenshots using the browser tool from VERIFICATION.md and compare with ex
 
 ---
 
-## 2. /ui-ux-pro-max guideline alignment
+## 2. /mpm-ui-ux-pro-max guideline alignment
 
-Invoke `/ui-ux-pro-max` to load professional UX standards. Then judge the implementation against them.
+Invoke `/mpm-ui-ux-pro-max` to load professional UX standards. Then judge the implementation against them.
 
 Focus areas (do NOT duplicate what's already in DESIGN.md — only check what the design system doesn't cover):
 
 ### 2a. Accessibility (CRITICAL)
-Judge against ui-ux-pro-max Priority 1 rules. Key checks:
+Judge against mpm-ui-ux-pro-max Priority 1 rules. Key checks:
 - Contrast ratios (4.5:1 normal text, 3:1 large text)
 - Focus states visible for keyboard navigation
 - ARIA labels on icon-only buttons
@@ -107,14 +108,14 @@ Judge against ui-ux-pro-max Priority 1 rules. Key checks:
 - Screen reader focus order matches visual order
 
 ### 2b. Interaction quality
-Judge against ui-ux-pro-max Priority 2 rules. Key checks:
+Judge against mpm-ui-ux-pro-max Priority 2 rules. Key checks:
 - Every clickable element has feedback (hover, press, loading)
 - State coverage: empty, loading, error, success, partial — all exist
 - No hover-only interactions (must work on touch)
 - Micro-interaction timing (150-300ms with native easing)
 
 ### 2c. Responsive behavior
-Judge against ui-ux-pro-max Priority 5 rules. Take mobile + tablet screenshots:
+Judge against mpm-ui-ux-pro-max Priority 5 rules. Take mobile + tablet screenshots:
 - No horizontal scroll on mobile
 - Text readable without zooming (≥ 16px body on mobile)
 - Content priority makes sense (most important first)
@@ -129,7 +130,7 @@ Test with:
 - Back button behavior
 
 ### 2e. Pre-delivery checklist
-Run the ui-ux-pro-max pre-delivery checklist against the implementation. Any failure → FAIL.
+Run the mpm-ui-ux-pro-max pre-delivery checklist against the implementation. Any failure → FAIL.
 
 ---
 
@@ -163,7 +164,7 @@ Design System:
   AI slop: PASS/FAIL — [which patterns]
   Visual consistency: PASS/FAIL
 
-UX Standards (ui-ux-pro-max):
+UX Standards (mpm-ui-ux-pro-max):
   Accessibility: PASS/FAIL — [issues]
   Interaction: PASS/FAIL — [issues]
   Responsive: PASS/FAIL — [issues]

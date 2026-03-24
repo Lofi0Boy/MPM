@@ -9,14 +9,14 @@ CWD=$(echo "$INPUT" | jq -r '.cwd' 2>/dev/null)
 CURRENT_DIR="$CWD/.mpm/data/current"
 
 if [ ! -d "$CURRENT_DIR" ]; then
-  echo "[MPM Task] No current task. If user requests code changes, spawn @planner to create tasks."
+  echo "[MPM Task] No current task. If user requests code changes, spawn @mpm-planner to create tasks."
   exit 0
 fi
 
 TASK_FILE=$(find "$CURRENT_DIR" -name "*.json" -print -quit 2>/dev/null)
 
 if [ -z "$TASK_FILE" ]; then
-  echo "[MPM Task] No current task. If user requests code changes, spawn @planner to create tasks."
+  echo "[MPM Task] No current task. If user requests code changes, spawn @mpm-planner to create tasks."
   exit 0
 fi
 

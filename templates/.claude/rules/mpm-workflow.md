@@ -100,7 +100,7 @@ Use `${CLAUDE_SESSION_ID}` — this is automatically available in all Claude Cod
 
 **From queue:** Pop from the front (index 0) of `future.json`.
 
-**From conversation:** If there is no current task and the user requests work that involves code changes, **do NOT create a task yourself**. Instead, spawn the `@planner` subagent to analyze the request and create properly scoped tasks.
+**From conversation:** If there is no current task and the user requests work that involves code changes, **do NOT create a task yourself**. Instead, spawn the `@mpm-planner` subagent to analyze the request and create properly scoped tasks.
 
 The Planner will:
 - Break down large requests into small, independently verifiable tasks
@@ -108,8 +108,8 @@ The Planner will:
 - You then `pop` the first one and start working
 
 **How to judge "work that involves code changes":**
-- YES → spawn @planner: "Change the border color", "Add this feature", "Fix this bug"
-- YES → spawn @planner: User starts with a question but then says "OK do it" — before first edit
+- YES → spawn @mpm-planner: "Change the border color", "Add this feature", "Fix this bug"
+- YES → spawn @mpm-planner: User starts with a question but then says "OK do it" — before first edit
 - NO → no task needed: "How does this work?", "What's the next task?", "Why is this error happening?"
 
 After planner finishes, pop the first task:
@@ -149,7 +149,7 @@ python3 .mpm/scripts/task.py update ${CLAUDE_SESSION_ID} memo "..."
 
 ### 4. Agent review
 
-The Stop hook detects `agent-review` status and instructs you to spawn the `@reviewer` subagent.
+The Stop hook detects `agent-review` status and instructs you to spawn the `@mpm-reviewer` subagent.
 
 The reviewer is an independent agent with fresh context — it reads the task, project documents, and verifies your work from scratch.
 

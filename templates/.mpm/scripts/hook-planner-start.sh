@@ -14,16 +14,11 @@ SCRIPTS_DIR="$CWD/.mpm/scripts"
 echo "## [MPM] Project Context (auto-injected)"
 echo ""
 
-for doc in PROJECT.md ARCHITECTURE.md DESIGN.md VERIFICATION.md; do
-  filepath="$DOCS_DIR/$doc"
-  if [[ -f "$filepath" ]]; then
-    echo "### $doc"
-    cat "$filepath"
-    echo ""
-  else
-    echo "### $doc — NOT FOUND"
-    echo ""
-  fi
+for filepath in "$DOCS_DIR"/*.md; do
+  [[ -f "$filepath" ]] || continue
+  echo "### $(basename "$filepath")"
+  cat "$filepath"
+  echo ""
 done
 
 # Token files

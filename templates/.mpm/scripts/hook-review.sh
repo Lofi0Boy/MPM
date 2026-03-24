@@ -1,6 +1,6 @@
 #!/bin/bash
 # MPM Stop Hook — Trigger Reviewer Agent
-# When a task is in agent-review status, instructs dev to spawn @reviewer subagent.
+# When a task is in agent-review status, instructs dev to spawn @mpm-reviewer subagent.
 # Tracks spawn attempts via .reviewed marker to prevent infinite loop when reviewer
 # exits without running task.py review.
 
@@ -66,5 +66,5 @@ If the reviewer returns **pass/needs-input/modified**: the task moves to review/
 Review attempt: $((TOTAL_ATTEMPTS + 1))/${MAX_REVIEWS}"
 
 jq -n --arg p "$PROMPT" \
-  '{decision:"block", reason:$p, systemMessage:"🔍 Spawn @reviewer to verify your work"}'
+  '{decision:"block", reason:$p, systemMessage:"🔍 Spawn @mpm-reviewer to verify your work"}'
 exit 0

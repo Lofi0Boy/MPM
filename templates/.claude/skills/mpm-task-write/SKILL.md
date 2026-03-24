@@ -34,7 +34,7 @@ Choose the appropriate goal and include `--goal-id <id>` when calling `task.py a
 
 **Prompt content (context for dev):**
 
-Before writing the prompt, **read all documents in `.mpm/docs/`** and extract sections relevant to this task.
+Before writing the prompt, **read all documents in `.mpm/docs/`** and extract sections relevant to this task. If `FEEDBACK.md` exists, check for past rejection patterns related to this task's area — avoid repeating mistakes that led to rejections.
 
 ```
 ## Context
@@ -42,6 +42,7 @@ Before writing the prompt, **read all documents in `.mpm/docs/`** and extract se
 - Architecture conventions to follow (cite specific sections from ARCHITECTURE.md)
 - Existing patterns to follow (reference actual code patterns in the codebase)
 - [UI tasks only] Design system constraints (cite DESIGN.md sections + token file paths)
+- [UI tasks only] UI structure and flow context (cite UIUX.md — which screen, expected states, navigation flow)
 
 ## Non-goals
 What is explicitly out of scope.
@@ -94,20 +95,20 @@ A task must be a **single function** verifiable with **1–2 evidence items**.
 
 ## On UI/UX Tasks
 
-When a Task involves UI changes, `.mpm/docs/DESIGN.md` and `.mpm/docs/tokens/` must be referenced.
+When a Task involves UI changes, `.mpm/docs/DESIGN.md`, `.mpm/docs/tokens/`, and `.mpm/docs/UIUX.md` must be referenced.
 
 **Include in Context:**
 - Design tokens to apply (cite specific token names from `.mpm/docs/tokens/`)
 - Existing component patterns to reuse and their code paths
 - Layout principles relevant to this Task (cite DESIGN.md sections)
+- Which screen this task belongs to, expected interaction states, and navigation flow (cite UIUX.md sections)
 
 **Include in prompt — dev agent instructions:**
-- "Read `.mpm/docs/DESIGN.md` and `.mpm/docs/tokens/` before starting."
-- "Follow `/ui-ux-pro-max` skill UX guidelines for interaction patterns, accessibility, and animation."
-- "Before marking done, run through the pre-delivery checklist in `/ui-ux-pro-max` skill."
+- "Follow `/mpm-ui-ux-pro-max` skill UX guidelines for interaction patterns, accessibility, and animation."
+- "Before marking done, run through the pre-delivery checklist in `/mpm-ui-ux-pro-max` skill."
 
-**If DESIGN.md is missing or incomplete:**
-- Do not create UI Tasks without design criteria
+**If DESIGN.md or UIUX.md is missing or incomplete:**
+- Do not create UI Tasks without design and UI/UX criteria
 - Run `/mpm-init-uiux` skill first
 
 **If a Task needs tokens not yet defined in `.mpm/docs/tokens/`:**
@@ -120,18 +121,6 @@ When a Task involves UI changes, `.mpm/docs/DESIGN.md` and `.mpm/docs/tokens/` m
 ## On Verification
 
 **Always check `.mpm/docs/VERIFICATION.md` first** for project-specific verification methods.
-
-Available verification methods:
-
-| Method | Use case | Example |
-|--------|----------|---------|
-| Browser automation | Dynamic UI check | Claude in Chrome, etc. |
-| curl + parse | API response check | `curl -s localhost:5100/api/projects \| jq .field` |
-| Run tests | Logic verification | `pytest tests/test_auth.py` |
-| Script execution | Output check | `python3 script.py && echo OK` |
-| File inspection | Creation/modification check | Verify file contains expected content |
-| Chrome | Static visual check | `google-chrome --headless --screenshot=...` |
-| User confirmation | **Last resort** | Only when above methods cannot verify |
 
 **Bad:** "Verify the feature works correctly"
 **Good:** "`curl -s localhost:5100/api/sessions | jq length` is 1 or more, and screenshot shows the terminal panel"

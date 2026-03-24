@@ -13,7 +13,7 @@ allowed-tools: Bash(python3 *)
    ```
 2. If the queue is empty, inform the user.
 3. Read the popped task from `.mpm/data/current/${CLAUDE_SESSION_ID}.json`.
-4. Read the task: `goal` and `verification` are already set by planner.
+4. Read the task: `goal` and `verification` are already set by planner. Also refer to the project foundation docs injected at session start (PROJECT.md, ARCHITECTURE.md, DESIGN.md, UIUX.md, VERIFICATION.md) for context.
 5. Fill in `approach` — your plan for how to implement:
    ```bash
    python3 .mpm/scripts/task.py update ${CLAUDE_SESSION_ID} approach "..."

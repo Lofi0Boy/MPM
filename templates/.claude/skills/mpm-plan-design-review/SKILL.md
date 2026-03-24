@@ -3,9 +3,8 @@ name: mpm-plan-design-review
 description: |
   Designer's eye plan review — interactive, like CEO and Eng review.
   Rates each design dimension 0-10, explains what would make it a 10,
-  then fixes the plan to get there. Works in plan mode. For live site
-  visual audits, use /mpm-design-review. Use when asked to "review the design plan"
-  or "design critique".
+  then fixes the plan to get there. Reviews UIUX.md against DESIGN.md and tokens.
+  Use when asked to "review the design plan" or "design critique".
   Proactively suggest when the user has a plan with UI/UX components that
   should be reviewed before implementation.
 ---
@@ -74,15 +73,15 @@ git diff main --stat
 ```
 
 Then read:
-- The plan file (current plan or branch diff)
+- **`.mpm/docs/UIUX.md`** — the primary review target. This is the UI plan to rate and improve.
+- **`.mpm/docs/DESIGN.md`** + **`.mpm/docs/tokens/`** — all design decisions calibrate against this
+- **`.mpm/docs/PROJECT.md`** — product context, target users
 - CLAUDE.md — project conventions
-- `.mpm/docs/DESIGN.md` — if it exists, ALL design decisions calibrate against it
-- `.mpm/docs/PROJECT.md` — product context
-- TODOS.md — any design-related TODOs this plan touches
 
 Map:
-* What is the UI scope of this plan? (pages, components, interactions)
-* Does a DESIGN.md exist? If not, flag as a gap.
+* What is the UI scope of the plan? (pages, components, interactions)
+* Does DESIGN.md exist? If not, flag as a gap.
+* Does UIUX.md exist? If not, there is nothing to review — recommend `/mpm-init-uiux` first.
 * Are there existing design patterns in the codebase to align with?
 
 ### Retrospective Check

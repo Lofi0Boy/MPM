@@ -78,7 +78,7 @@ If the README or office-hours output gives you enough context, pre-fill and conf
 **Before** proposing anything, run the design system generator to get industry-matched recommendations:
 
 ```bash
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<product_type> <industry> <keywords>" --design-system -p "<project_name>"
+python3 .claude/skills/mpm-ui-ux-pro-max/scripts/search.py "<product_type> <industry> <keywords>" --design-system -p "<project_name>"
 ```
 
 This returns:
@@ -229,7 +229,7 @@ When the user overrides one section, check if the rest still coheres. Flag misma
 When the user wants to change a specific section, go deep on that section:
 
 - **Fonts:** Present 3-5 specific candidates with rationale, explain what each evokes, offer the preview page
-- **Colors:** Present 2-3 palette options with hex values, explain the color theory reasoning. Optionally run `python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<keywords>" --domain color` for additional palette options
+- **Colors:** Present 2-3 palette options with hex values, explain the color theory reasoning. Optionally run `python3 .claude/skills/mpm-ui-ux-pro-max/scripts/search.py "<keywords>" --domain color` for additional palette options
 - **Aesthetic:** Walk through which directions fit their product and why
 - **Layout/Spacing/Motion:** Present the approaches with concrete tradeoffs for their product type
 
@@ -358,7 +358,7 @@ Tokens must include all values from DESIGN.md: colors, typography, spacing, bord
 If search.py was used in Phase 2, also persist it for reference:
 
 ```bash
-python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<query>" --design-system --persist -p "<project_name>" --output-dir .mpm/docs/design -f markdown
+python3 .claude/skills/mpm-ui-ux-pro-max/scripts/search.py "<query>" --design-system --persist -p "<project_name>" --output-dir .mpm/docs/design -f markdown
 ```
 
 This creates `.mpm/docs/design/<project-slug>/MASTER.md` for reference by downstream skills.

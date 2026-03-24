@@ -1,11 +1,11 @@
 ---
 name: mpm-recycle
-description: Scan past for rejected tasks, rewrite their prompts with rejection context, and return them to future queue.
+description: Scan past for rejected tasks, collect rejection context, and invoke /mpm-task-write to create improved replacement tasks.
 ---
 
 # Recycle Rejected Tasks
 
-Scan past for tasks rejected by human review, rewrite their prompts incorporating rejection feedback and history, then return them to the future queue for another attempt.
+Scan past for tasks rejected by human review, collect rejection context, then delegate to `/mpm-task-write` for proper task creation.
 
 ## Step 1: Find rejected tasks
 
@@ -15,55 +15,43 @@ python3 .mpm/scripts/task.py rejected
 
 If none found, inform the user and stop.
 
-## Step 2: For each rejected task
+## Step 2: For each rejected task, collect context
 
-1. Read the full task details from past (the `rejected` command shows id, title, rejection comment)
-2. Read the relevant past file to get the full task object — especially:
+1. Read the full task details from past:
    - `prompt` (original instruction)
    - `result` (what was actually done)
    - `agent_reviews` (what reviewer found)
    - `human_review.comment` (why human rejected)
    - `parent_goal` (which goal this serves)
 
-3. Read project documents for context:
-   - `.mpm/docs/PROJECT.md`
-   - `.mpm/docs/ARCHITECTURE.md`
-   - `.mpm/docs/DESIGN.md`
+2. Summarize the rejection context:
+   ```
+   Previous attempt: [what was done]
+   Rejection reason: [human's comment]
+   Reviewer findings: [relevant agent review notes]
+   What went wrong: [your analysis]
+   ```
 
-## Step 3: Rewrite the prompt
+## Step 3: Invoke /mpm-task-write
 
-Craft a new, improved prompt that incorporates:
+Pass the rejection context to `/mpm-task-write` as additional input. Tell it:
+- The original task title and goal
+- The rejection context from Step 2
+- The `parent_goal` (so the new task stays under the same goal)
 
-```
-## Outcome
-[Rewrite the original outcome, adjusted based on rejection feedback]
+`/mpm-task-write` will handle reading foundation docs, writing the prompt, setting goal/verification, and calling `task.py add`.
 
-## Context
-- [Original context, if any]
-- Previous attempt result: [summary of what was done]
-- Rejection reason: [human's comment]
-- Reviewer findings: [relevant agent review notes]
+## Step 4: Remove the rejected task
 
-## Verification
-[Same or improved verification methods]
-
-## Non-goals
-[Clarify scope based on what went wrong]
-```
-
-**Key principle:** The new prompt should be **more specific** than the original. Use the rejection reason to narrow scope, clarify requirements, or fix misunderstandings. The developer who picks this up has NO context from the previous attempt — the prompt must be self-contained.
-
-## Step 4: Recycle via task.py
+After the new task is created:
 
 ```bash
 python3 .mpm/scripts/task.py recycle <task_id> "<new_prompt>"
 ```
 
-This removes the rejected task from past and creates a fresh task in future with the rewritten prompt.
-
 ## Step 5: Confirm
 
-Show the user what was recycled and the new prompt summary.
+Show the user what was recycled and the new task summary.
 
 ---
 
