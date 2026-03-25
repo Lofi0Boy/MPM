@@ -3,7 +3,7 @@
 ## AHA Solves What
 
 I was running multiple Claude Code sessions. Every time one finished, it wanted my attention — while I was mid-thought on something else.
-Context-switching was killing my focus!
+Context-switching was killing my focus.
 
 So I tried batching tasks, but the results were a mess — broken UI/UX, buggy code, contradictory decisions. I spent more time finding where it went wrong than doing actual work.
 
