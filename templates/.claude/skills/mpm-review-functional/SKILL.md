@@ -16,17 +16,7 @@ description: Verify that the implementation actually works. Run verification met
 
 Execute every verification method from the task's `verification` field and from `VERIFICATION.md`. Record pass/fail for each.
 
-### 2. Test the running app
-
-If the task involves a running service:
-```bash
-# Find the app
-curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 2>/dev/null || \
-curl -s -o /dev/null -w "%{http_code}" http://localhost:5100 2>/dev/null || \
-curl -s -o /dev/null -w "%{http_code}" http://localhost:8080 2>/dev/null
-```
-
-### 3. Test unhappy paths
+### 2. Test unhappy paths
 
 For each feature the task implements, test:
 - **Bad input**: empty string, null, wrong type, too long, special characters
@@ -34,24 +24,17 @@ For each feature the task implements, test:
 - **Error conditions**: network timeout, server error, permission denied
 - **Concurrent access**: if applicable, what happens with simultaneous requests?
 
-### 4. Check for silent errors
-
-```bash
-# Check console/logs for errors
-# For web apps:
-google-chrome --headless --screenshot=/dev/null --window-size=1,1 <url> 2>&1 | grep -i error || true
-
-# For Python:
-python3 -W all <script> 2>&1 | grep -iE 'error|warning|exception' || true
-```
-
-### 5. Verify data flow
+### 3. Verify data flow
 
 If the task involves data persistence:
 - Create → verify it's stored
 - Read → verify it returns the right data
 - Update → verify the change persists
 - Delete → verify it's actually gone
+
+## Cannot verify → needs-input
+
+If a verification step requires a tool or credential you don't have (auth tokens, API keys, external services, browser tool), do NOT skip it or pass anyway. Return `FUNCTIONAL REVIEW: NEEDS-INPUT` and list exactly what you couldn't verify and why.
 
 ## Return format
 

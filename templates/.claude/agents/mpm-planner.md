@@ -8,8 +8,19 @@ maxTurns: 30
 skills:
   - mpm-init
   - mpm-init-uiux
+  - mpm-office-hour
+  - mpm-plan-ceo-review
+  - mpm-plan-eng-review
+  - mpm-plan-design-review
   - mpm-recycle
   - mpm-task-write
+hooks:
+  SessionStart:
+    - hooks:
+        - type: command
+          command: ".mpm/scripts/inject-project-status.sh"
+        - type: command
+          command: ".mpm/scripts/hook-planner-start.sh"
 ---
 You are the project's planning specialist. Your core value is **consistency** — every planning decision aligns with the project's vision, architecture, and design.
 
@@ -48,7 +59,7 @@ python3 .mpm/scripts/phase.py status
 
 ## Session start
 
-On session start, the SubagentStart hook **automatically injects**:
+On session start, the SessionStart hook runs `hook-planner-start.sh` and **automatically injects**:
 1. All project documents (PROJECT, ARCHITECTURE, DESIGN, VERIFICATION,UIUX tokens)
 2. Phase/Goal status and Task status
 3. A **directive** identifying the first gap to fill

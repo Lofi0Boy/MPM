@@ -14,13 +14,26 @@ Human review happens asynchronously — dev does not wait for it.
 
 - **(no args)**: Process all future tasks until future.json is empty.
 - `--top N`: Process only the top N tasks (highest priority = front of queue).
+- `--goal <ref>`: Process only tasks belonging to the specified goal. Accepts goal ID, index in active phase (e.g. `2`), or `phase.goal` index (e.g. `1.2`).
+- `--phase <ref>`: Process only tasks within the specified phase. Accepts phase ID or index (e.g. `1`).
 
 ## Setup
 
 ```bash
 SID=$(grep "session=" /tmp/mpm-hook.log | tail -1 | sed 's/.*session=//')
 
-MODE=${1:---all}
+# Parse arguments: --top N, --goal <id>, --phase <id>
+MODE="--all"
+GOAL_FILTER=""
+PHASE_FILTER=""
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --top) MODE="--top $2"; shift 2 ;;
+    --goal) GOAL_FILTER="$2"; shift 2 ;;
+    --phase) PHASE_FILTER="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
 
 cat > .mpm/data/autonext-state.json << STATEEOF
 {
@@ -29,18 +42,19 @@ cat > .mpm/data/autonext-state.json << STATEEOF
   "task_iteration": 0,
   "tasks_completed": 0,
   "mode": "$MODE",
+  "goal_filter": "$GOAL_FILTER",
+  "phase_filter": "$PHASE_FILTER",
   "started_at": "$(date -Iseconds)"
 }
 STATEEOF
-echo "🚀 MPM Auto-Next activated"
+echo "MPM Auto-Next activated"
 ```
 
 ## Pre-flight: Verify tools work
 
-Before processing any tasks, confirm that all verification tools listed in `.mpm/docs/VERIFICATION.md` actually work.
+Before processing any tasks, confirm that all verification tools from the injected VERIFICATION.md actually work.
 
-1. Read `.mpm/docs/VERIFICATION.md`
-2. For each tool listed, run a quick smoke test:
+1. For each tool listed, run a quick smoke test:
    - **Test/Build**: run the command and confirm it exits successfully (e.g., `npm test`, `pytest --co -q`)
    - **Browser tools**: run the exact commands from VERIFICATION.md's Browser Verification section to confirm the tool works and can reach the dev server
    - **Dev server**: confirm it's running or start it, verify the URL responds
@@ -51,25 +65,27 @@ Before processing any tasks, confirm that all verification tools listed in `.mpm
 
 ## Workflow
 
-1. Pop the next task:
+1. Pop the next task (pass filter from autonext-state.json if set):
    ```bash
-   python3 .mpm/scripts/task.py pop ${CLAUDE_SESSION_ID}
+   # Read filters from state
+   GOAL=$(python3 -c "import json; s=json.load(open('.mpm/data/autonext-state.json')); print(s.get('goal_filter',''))" 2>/dev/null)
+   PHASE=$(python3 -c "import json; s=json.load(open('.mpm/data/autonext-state.json')); print(s.get('phase_filter',''))" 2>/dev/null)
+   POP_ARGS=""
+   [ -n "$GOAL" ] && POP_ARGS="--goal $GOAL"
+   [ -n "$PHASE" ] && POP_ARGS="--phase $PHASE"
+   python3 .mpm/scripts/task.py pop ${CLAUDE_SESSION_ID} $POP_ARGS
    ```
 
 2. Read the task. `goal` and `verification` are already set by planner. Fill `approach`.
-   - If `verification` is empty or missing: read `.mpm/docs/VERIFICATION.md` and choose the appropriate verification methods for this task. Fill `verification` via `task.py update` before starting work.
+   - If `verification` is empty or missing: refer to the injected VERIFICATION.md and choose the appropriate verification methods for this task. Fill `verification` via `task.py update` before starting work.
 
 3. Do the work.
 
 4. Self-verify using the method you specified.
-   - If verification **passes**: fill `result` and `memo` via `task.py update`. This auto-transitions to `agent-review`.
+   - If verification **passes**: fill `result`, `changes`, and `memo` via `task.py update`. This auto-transitions to `agent-review`.
    - If verification **fails**: fix and retry. The Stop hook will track iterations.
 
-5. The Stop hook triggers the reviewer agent. The reviewer independently verifies your work.
-   - **pass** → task moves to `review/` for human-review. Dev is freed.
-   - **fail** → task returns to `dev`, fix issues and update result again.
-
-6. After reviewer passes, current/ is empty. The Stop hook pops the next task from future.
+5. After filling result, the hooks handle review and next task progression automatically.
 
 ## Rules
 

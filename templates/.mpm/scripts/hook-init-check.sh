@@ -9,7 +9,7 @@ CWD=$(echo "$INPUT" | jq -r '.cwd' 2>/dev/null)
 if [ -d "$CWD/.mpm" ] && [ ! -f "$CWD/.mpm/docs/PROJECT.md" ]; then
   cat <<'INITEOF'
 [MPM] This project hasn't been initialized yet.
-Spawn @mpm-planner to run /mpm-init and set up your project.
+Send to @mpm-planner via SendMessage to run /mpm-init and set up your project.
 INITEOF
   exit 0
 fi

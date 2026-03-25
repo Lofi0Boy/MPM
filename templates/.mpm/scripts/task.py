@@ -6,12 +6,12 @@ Status flow: future → dev → agent-review → human-review → past
 File flow:   future.json → current/{session}.json → review/{task_id}.json → past/YYMMDD.json
 
 Usage:
-    task.py pop <session_id>              # future → current (status: dev)
+    task.py pop <session_id> [--goal <id>] [--phase <id>]  # future → current (status: dev)
     task.py create <session_id> <title> <prompt>  # → current (direct, status: dev)
     task.py complete <task_id> <verdict> [--comment "..."]  # review → past (human only)
     task.py add <title> <prompt> --goal "..." --verification "..." [--goal-id <id>]  # → future
     task.py update <session_id> <field> <value>  # update current task field
-    task.py review <session_id> <verdict> --summary "..." [--evidence "..."]  # agent review
+    task.py review <session_id> <verdict> --what "..." --result "..." [--is-ui] [--screenshot "path"] [--log-cmd "cmd" --log-out "output"]  # agent review
     task.py status                        # show current state
     task.py remove <task_id>              # remove from future queue
     task.py rejected                      # list rejected tasks in past
@@ -31,8 +31,7 @@ FUTURE_PATH = DATA_DIR / "future.json"
 CURRENT_DIR = DATA_DIR / "current"
 REVIEW_DIR = DATA_DIR / "review"
 PAST_DIR = DATA_DIR / "past"
-DOCS_DIR = Path(__file__).parent.parent / "docs"
-FEEDBACK_PATH = DOCS_DIR / "FEEDBACK.md"
+FEEDBACK_PATH = DATA_DIR / "FEEDBACK_HISTORY.md"
 CONFIG_PATH = Path.home() / ".mpm" / "config.json"
 
 # Canonical task schema — all fields present from creation, progressively filled
@@ -44,6 +43,7 @@ TASK_TEMPLATE = {
     "approach": None,
     "verification": None,
     "result": None,
+    "changes": None,
     "memo": None,
     "status": "future",
     "agent_reviews": [],
@@ -66,23 +66,19 @@ def _get_tz():
 
 
 def _append_feedback(task, verdict, comment=None):
-    """Append human review result to FEEDBACK.md."""
-    DOCS_DIR.mkdir(parents=True, exist_ok=True)
+    """Append rejected/needs-input review to FEEDBACK_HISTORY.md."""
+    if verdict not in ("rejected", "needs-input") or not comment:
+        return
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     date_str = datetime.now(_get_tz()).strftime("%Y-%m-%d %H:%M")
     title = task.get("title", "?")
     goal = task.get("goal", "")
-    agent_summary = ""
-    reviews = task.get("agent_reviews", [])
-    if reviews:
-        last = reviews[-1]
-        agent_summary = f"- Agent review: {last.get('summary', '')}"
 
     entry = f"""
 ### [{verdict.upper()}] {title}
 - Date: {date_str}
 - Goal: {goal}
-{f'- Comment: {comment}' if comment else ''}
-{agent_summary}
+- Comment: {comment}
 """
     with open(FEEDBACK_PATH, "a", encoding="utf-8") as f:
         f.write(entry)
@@ -137,8 +133,70 @@ def _move_to_review(task, current_path):
     return review_path
 
 
-def cmd_pop(session_id):
-    """Pop first task from future → current/{session_id}.json (status: dev)"""
+def _load_phases():
+    phases_path = DATA_DIR / "phases.json"
+    if not phases_path.exists():
+        return {"current_phase": None, "phases": []}
+    return json.loads(phases_path.read_text(encoding="utf-8"))
+
+
+def _resolve_phase(ref):
+    """Resolve phase by index (1-based) or ID."""
+    data = _load_phases()
+    phases = data.get("phases", [])
+    if ref.isdigit():
+        idx = int(ref) - 1
+        if 0 <= idx < len(phases):
+            return phases[idx]["id"]
+        print(f"ERROR: phase index {ref} out of range (1-{len(phases)})")
+        sys.exit(1)
+    return ref  # assume it's an ID
+
+
+def _resolve_goal(ref):
+    """Resolve goal by 'phase.goal' index (e.g. '1.2') or ID."""
+    data = _load_phases()
+    phases = data.get("phases", [])
+    if "." in ref:
+        parts = ref.split(".", 1)
+        if parts[0].isdigit() and parts[1].isdigit():
+            pi = int(parts[0]) - 1
+            gi = int(parts[1]) - 1
+            if 0 <= pi < len(phases):
+                goals = phases[pi].get("goals", [])
+                if 0 <= gi < len(goals):
+                    return goals[gi]["id"]
+                print(f"ERROR: goal index {ref} out of range (phase has {len(goals)} goals)")
+                sys.exit(1)
+            print(f"ERROR: phase index {parts[0]} out of range (1-{len(phases)})")
+            sys.exit(1)
+    if ref.isdigit():
+        # Single number — search in active phase
+        gi = int(ref) - 1
+        active_id = data.get("current_phase")
+        for p in phases:
+            if p["id"] == active_id:
+                goals = p.get("goals", [])
+                if 0 <= gi < len(goals):
+                    return goals[gi]["id"]
+                print(f"ERROR: goal index {ref} out of range (active phase has {len(goals)} goals)")
+                sys.exit(1)
+        print("ERROR: no active phase")
+        sys.exit(1)
+    return ref  # assume it's an ID
+
+
+def _goal_ids_for_phase(phase_id):
+    """Get all goal IDs belonging to a phase."""
+    data = _load_phases()
+    for p in data.get("phases", []):
+        if p["id"] == phase_id:
+            return [g["id"] for g in p.get("goals", [])]
+    return []
+
+
+def cmd_pop(session_id, goal_id=None, phase_id=None):
+    """Pop first matching task from future → current/{session_id}.json (status: dev)"""
     lock = _lock()
     try:
         future = _load_json(FUTURE_PATH, [])
@@ -152,7 +210,29 @@ def cmd_pop(session_id):
             print(f"ERROR: session already has task: {existing.get('title', '?')}")
             sys.exit(1)
 
-        task = future.pop(0)
+        # Build set of allowed goal IDs
+        allowed_goals = None
+        if goal_id:
+            allowed_goals = {goal_id}
+        elif phase_id:
+            allowed_goals = set(_goal_ids_for_phase(phase_id))
+            if not allowed_goals:
+                print(f"ERROR: no goals found for phase {phase_id}")
+                sys.exit(1)
+
+        # Find first matching task
+        task_idx = None
+        for i, t in enumerate(future):
+            if allowed_goals is None or t.get("parent_goal") in allowed_goals:
+                task_idx = i
+                break
+
+        if task_idx is None:
+            filter_desc = f" matching goal={goal_id}" if goal_id else f" matching phase={phase_id}"
+            print(f"ERROR: no tasks in future queue{filter_desc}.")
+            sys.exit(1)
+
+        task = future.pop(task_idx)
         task["status"] = "dev"
         task["session_id"] = session_id
 
@@ -199,7 +279,7 @@ def cmd_complete(task_id, verdict, comment=None):
         past.append(task)
         _save_json(past_path, past)
 
-        # Append to FEEDBACK.md
+        # Append to FEEDBACK_HISTORY.md
         _append_feedback(task, verdict, comment)
 
         # Remove from review
@@ -262,7 +342,7 @@ def cmd_add(title, prompt, goal_id=None, goal=None, verification=None):
     print(f"  title: {title}")
 
 
-def cmd_review(session_id, verdict, summary=None, evidence=None):
+def cmd_review(session_id, verdict, what=None, result=None, is_ui=False, screenshots=None, logs=None):
     """Add an agent review entry to the current task."""
     current_path = CURRENT_DIR / f"{session_id}.json"
     if not current_path.exists():
@@ -280,10 +360,22 @@ def cmd_review(session_id, verdict, summary=None, evidence=None):
         print(f"ERROR: review verdict must be one of {valid_verdicts}")
         sys.exit(1)
 
+    if not what:
+        print("ERROR: --what is required")
+        sys.exit(1)
+    if not result:
+        print("ERROR: --result is required")
+        sys.exit(1)
+
     review_entry = {
         "verdict": verdict,
-        "summary": summary or "",
-        "evidence": evidence or "",
+        "what": what,
+        "result": result,
+        "is_ui": is_ui,
+        "evidence": {
+            "screenshots": screenshots or [],
+            "logs": logs or [],
+        },
         "at": datetime.now(_get_tz()).strftime("%y%m%d%H%M"),
     }
     task["agent_reviews"].append(review_entry)
@@ -450,7 +542,7 @@ def cmd_update_field(session_id, field, value):
         print(f"ERROR: no task for session {session_id}")
         sys.exit(1)
 
-    valid_fields = ("title", "goal", "approach", "verification", "result", "memo")  # goal/verification set by planner at creation, dev can override if needed
+    valid_fields = ("title", "goal", "approach", "verification", "result", "changes", "memo")  # goal/verification set by planner at creation, dev can override if needed
     if field not in valid_fields:
         print(f"ERROR: field must be one of {valid_fields}")
         sys.exit(1)
@@ -458,8 +550,16 @@ def cmd_update_field(session_id, field, value):
     task = _load_json(current_path)
     task[field] = value
 
-    # When result is filled, auto-transition to agent-review
+    # When result is filled, auto-transition to agent-review (requires changes)
     if field == "result" and value and task["status"] == "dev":
+        if not task.get("changes"):
+            print(f"  ⚠ changes is empty — fill changes before or after result to transition to agent-review.")
+        else:
+            task["status"] = "agent-review"
+            print(f"  → status: dev → agent-review")
+
+    # If changes is filled after result, trigger the transition
+    if field == "changes" and value and task["status"] == "dev" and task.get("result"):
         task["status"] = "agent-review"
         print(f"  → status: dev → agent-review")
 
@@ -475,7 +575,19 @@ def main():
     cmd = sys.argv[1]
 
     if cmd == "pop" and len(sys.argv) >= 3:
-        cmd_pop(sys.argv[2])
+        goal_id = None
+        phase_id = None
+        i = 3
+        while i < len(sys.argv):
+            if sys.argv[i] == "--goal" and i + 1 < len(sys.argv):
+                goal_id = _resolve_goal(sys.argv[i + 1])
+                i += 2
+            elif sys.argv[i] == "--phase" and i + 1 < len(sys.argv):
+                phase_id = _resolve_phase(sys.argv[i + 1])
+                i += 2
+            else:
+                i += 1
+        cmd_pop(sys.argv[2], goal_id=goal_id, phase_id=phase_id)
     elif cmd == "create" and len(sys.argv) >= 5:
         cmd_create(sys.argv[2], sys.argv[3], sys.argv[4])
     elif cmd == "complete" and len(sys.argv) >= 4:
@@ -507,19 +619,37 @@ def main():
                 i += 1
         cmd_add(sys.argv[2], sys.argv[3], goal_id=goal_id, goal=goal, verification=verification)
     elif cmd == "review" and len(sys.argv) >= 4:
-        summary = None
-        evidence = None
+        what = None
+        result = None
+        is_ui = False
+        screenshots = []
+        logs = []
         i = 4
         while i < len(sys.argv):
-            if sys.argv[i] == "--summary" and i + 1 < len(sys.argv):
-                summary = sys.argv[i + 1]
+            if sys.argv[i] == "--what" and i + 1 < len(sys.argv):
+                what = sys.argv[i + 1]
                 i += 2
-            elif sys.argv[i] == "--evidence" and i + 1 < len(sys.argv):
-                evidence = sys.argv[i + 1]
+            elif sys.argv[i] == "--result" and i + 1 < len(sys.argv):
+                result = sys.argv[i + 1]
                 i += 2
+            elif sys.argv[i] == "--is-ui":
+                is_ui = True
+                i += 1
+            elif sys.argv[i] == "--screenshot" and i + 1 < len(sys.argv):
+                screenshots.append(sys.argv[i + 1])
+                i += 2
+            elif sys.argv[i] == "--log-cmd" and i + 1 < len(sys.argv):
+                cmd_str = sys.argv[i + 1]
+                out_str = ""
+                if i + 2 < len(sys.argv) and sys.argv[i + 2] == "--log-out":
+                    out_str = sys.argv[i + 3] if i + 3 < len(sys.argv) else ""
+                    i += 4
+                else:
+                    i += 2
+                logs.append({"command": cmd_str, "output": out_str})
             else:
                 i += 1
-        cmd_review(sys.argv[2], sys.argv[3], summary=summary, evidence=evidence)
+        cmd_review(sys.argv[2], sys.argv[3], what=what, result=result, is_ui=is_ui, screenshots=screenshots, logs=logs)
     elif cmd == "escalate" and len(sys.argv) >= 3:
         cmd_escalate(sys.argv[2])
     elif cmd == "rejected":

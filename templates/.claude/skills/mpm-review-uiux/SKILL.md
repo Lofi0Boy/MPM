@@ -153,10 +153,14 @@ If the browser tool supports interaction (click, fill, etc.), do a full walkthro
 
 ---
 
+## Cannot verify → needs-input
+
+If the browser tool is unavailable, screenshots cannot be taken, or any visual verification is impossible, do NOT skip checks or pass anyway. Return `UIUX REVIEW: NEEDS-INPUT` and list exactly what you couldn't verify and why.
+
 ## Return format
 
 ```
-UIUX REVIEW: PASS/FAIL
+UIUX REVIEW: PASS/FAIL/NEEDS-INPUT
 
 Design System:
   Token compliance: PASS/FAIL — [count] violations

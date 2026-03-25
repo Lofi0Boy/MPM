@@ -9,3 +9,4 @@ node_modules/
 # Runtime data (not for distribution — this repo's own MPM state)
 /.mpm/
 /.claude/
+.gstack/

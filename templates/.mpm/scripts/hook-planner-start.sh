@@ -1,55 +1,19 @@
 #!/bin/bash
-# SubagentStart hook (matcher: planner) + SessionStart router target
-# Deterministically injects project context + gap directive into planner session.
-
-set -euo pipefail
+# SessionStart hook for planner agent.
+# Injects shared project context + planner-specific task status and gap directive.
 
 INPUT=$(cat)
 CWD=$(echo "$INPUT" | jq -r '.cwd // "."' 2>/dev/null)
 
-DOCS_DIR="$CWD/.mpm/docs"
 SCRIPTS_DIR="$CWD/.mpm/scripts"
+DOCS_DIR="$CWD/.mpm/docs"
 
-# --- 1. Inject project documents ---
-echo "## [MPM] Project Context (auto-injected)"
-echo ""
-
-for filepath in "$DOCS_DIR"/*.md; do
-  [[ -f "$filepath" ]] || continue
-  echo "### $(basename "$filepath")"
-  cat "$filepath"
-  echo ""
-done
-
-# Token files
-TOKEN_DIR="$DOCS_DIR/tokens"
-if [[ -d "$TOKEN_DIR" ]]; then
-  for tf in "$TOKEN_DIR"/*; do
-    [[ -f "$tf" ]] || continue
-    echo "### tokens/$(basename "$tf")"
-    cat "$tf"
-    echo ""
-  done
-fi
-
-# --- Feedback history ---
-FEEDBACK="$DOCS_DIR/FEEDBACK.md"
-if [[ -f "$FEEDBACK" ]]; then
-  echo "### FEEDBACK.md (human review history)"
-  cat "$FEEDBACK"
-  echo ""
-fi
-
-# --- 2. Inject status ---
-echo "### Phase/Goal Status"
-python3 "$SCRIPTS_DIR/phase.py" status 2>/dev/null || echo "(no phases)"
-echo ""
-
+# --- Planner-specific: Task status ---
 echo "### Task Status"
 python3 "$SCRIPTS_DIR/task.py" status 2>/dev/null || echo "(no tasks)"
 echo ""
 
-# --- 3. Detect ALL gaps and output directive ---
+# --- Planner-specific: Gap directive ---
 echo "---"
 echo "## [MPM] Planner Directive"
 echo ""
@@ -83,7 +47,7 @@ print(len(tasks))
 # Strip trailing comma+space
 GAPS="${GAPS%, }"
 
-# Rejected tasks (separate from init)
+# Rejected tasks
 REJECTED_COUNT=$(python3 -c "
 import json
 from pathlib import Path

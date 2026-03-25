@@ -34,7 +34,7 @@ Choose the appropriate goal and include `--goal-id <id>` when calling `task.py a
 
 **Prompt content (context for dev):**
 
-Before writing the prompt, **read all documents in `.mpm/docs/`** and extract sections relevant to this task. If `FEEDBACK.md` exists, check for past rejection patterns related to this task's area — avoid repeating mistakes that led to rejections.
+Before writing the prompt, **review the injected project documents** and extract sections relevant to this task. If FEEDBACK_HISTORY.md was injected, check for past rejection patterns related to this task's area — avoid repeating mistakes that led to rejections.
 
 ```
 ## Context
@@ -88,7 +88,7 @@ A task must be a **single function** verifiable with **1–2 evidence items**.
 
 - **Outcome over process.** Describe "what"; the developer agent decides "how".
 - **Be specific.** "`/health` endpoint returns `{status: 'ok'}`" > "Add health checking"
-- **Check upward consistency.** Always verify the Task aligns with its Goal, Phase, and Project purpose. Read PROJECT.md to confirm the task serves the product vision.
+- **Check upward consistency.** Always verify the Task aligns with its Goal, Phase, and Project purpose. Refer to the injected PROJECT.md to confirm the task serves the product vision.
 - **Ground in foundation docs.** Every task prompt must cite specific sections from `.mpm/docs/` documents — not just mention them generically.
 
 ---
@@ -120,7 +120,7 @@ When a Task involves UI changes, `.mpm/docs/DESIGN.md`, `.mpm/docs/tokens/`, and
 
 ## On Verification
 
-**Always check `.mpm/docs/VERIFICATION.md` first** for project-specific verification methods.
+**Always refer to the injected VERIFICATION.md** for project-specific verification methods.
 
 **Bad:** "Verify the feature works correctly"
 **Good:** "`curl -s localhost:5100/api/sessions | jq length` is 1 or more, and screenshot shows the terminal panel"

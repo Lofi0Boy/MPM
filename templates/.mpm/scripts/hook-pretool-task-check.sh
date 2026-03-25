@@ -21,7 +21,7 @@ TASK_FILE="$CWD/.mpm/data/current/${SESSION_ID}.json"
 if [ ! -f "$TASK_FILE" ]; then
   jq -n '{
     decision: "block",
-    reason: "[MPM] No current task. Spawn @mpm-planner to create properly scoped tasks first, then pop one to start working. Do NOT create tasks directly — always go through @mpm-planner."
+    reason: "[MPM] No current task. Send to @mpm-planner via SendMessage to create properly scoped tasks first, then pop one to start working. Do NOT create tasks directly — always go through @mpm-planner."
   }'
   exit 0
 fi
