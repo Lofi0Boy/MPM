@@ -50,7 +50,7 @@ Two sessions recommended (Planner ↔ Developer) for parallel work.
 
 ```bash
 # Planner Session
-claude --agent planner /aha-init
+claude --agent aha-planner /aha-init
 ```
 
 Create and elaborate foundation docs (`PROJECT.md`, `ARCHITECTURE.md`, `DESIGN.md`, `VERIFICATION.md`).
@@ -74,7 +74,7 @@ New tasks added mid-run are picked up automatically.
 
 ```bash
 # Planner session
-claude /aha-human-review
+/aha-human-review
 ```
 
 Review completed tasks at your own pace. Approve, reject, or discard.
