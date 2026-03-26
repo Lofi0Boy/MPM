@@ -50,7 +50,7 @@ Two sessions recommended (Planner ↔ Developer) for parallel work.
 
 ```bash
 # Planner Session
-claude --agent planner /aha-init
+claude --agent aha-planner /aha-init
 ```
 
 Create and elaborate foundation docs (`PROJECT.md`, `ARCHITECTURE.md`, `DESIGN.md`, `VERIFICATION.md`).
@@ -62,7 +62,7 @@ Takes ~30 min, but 10x payoff.
 
 ```bash
 # Developer Session
-claude --dangerously-skip-permissions /aha-autonext  # skip permissions for unattended execution
+claude --agent aha-developer --dangerously-skip-permissions /aha-autonext  # skip permissions for unattended execution
 ```
 
 Pop task → dev → auto-review → next. Repeats until the queue is empty.
